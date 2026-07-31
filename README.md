@@ -1,10 +1,13 @@
 # Happy Post DevOps Candidate Technical Assessment
 
-Happy Post is a documentation-first DevOps assessment project. The planned solution uses a Next.js frontend and FastAPI backend, delivered as two independently deployable container images and ECS Fargate services.
+Happy Post is a DevOps assessment project with a Next.js frontend and FastAPI backend. The target delivery architecture uses two independently deployable container images and ECS Fargate services.
 
 ## Current status
 
-This repository currently contains the documentation baseline only. It does not yet contain application code, containers, infrastructure-as-code, GitHub Actions workflows, or deployed AWS resources.
+The MVP application source is present: a FastAPI posts API and a Next.js post board. Neither service has been containerised or deployed. Terraform, CloudFormation changes, GitHub Actions workflows, and AWS resources are deliberately still outstanding.
+
+- [Backend MVP](backend/README.md): posts API, operational endpoints, PostgreSQL-ready schema and migration, tests, linting, and local configuration example.
+- [Frontend MVP](frontend/README.md): post board, backend API integration, operational endpoints, tests, linting, and local configuration example.
 
 ## Canonical baseline
 
