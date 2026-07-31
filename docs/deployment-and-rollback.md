@@ -1,0 +1,32 @@
+# Deployment and Rollback
+
+## Deployment model
+
+After a protected merge to the default branch, the future delivery workflow determines which component changed, builds and tests that component, scans its image, publishes a private ECR image by immutable digest, and deploys only the selected ECS service through the `sandbox` GitHub environment. Sandbox has no required reviewers or manual approval gate.
+
+An ECR image push does not update ECS by itself. After the push, the deployment workflow verifies the immutable digest, registers a new task-definition revision that references that digest, and updates only the selected ECS service to that revision. ECS then performs the rolling deployment; the workflow waits for service stability and runs component smoke tests.
+
+Terraform provisions the stable service infrastructure and initial task definition. CI creates later task-definition revisions and updates services to a digest-pinned image. Terraform ignores the service `task_definition` field after initial creation to avoid undoing a valid deployment.
+
+Terraform infrastructure apply is separate from application delivery. It is started only by workflow dispatch for a selected immutable `main` commit, creates a fresh plan for that commit, and applies that exact plan through the `sandbox` OIDC role. A merge never applies Terraform. Destroy is separately dispatched with explicit confirmation.
+
+The RDS data stack is provisioned separately from application services. Database migrations must be backward-compatible, run before the backend version that requires them, and have a documented restore or compensating-migration approach before deployment.
+
+## Verification
+
+The deployment workflow must wait for ECS service stability and verify the component-specific public routes:
+
+| Component | Verification routes |
+| --- | --- |
+| Frontend | `/frontend/healthz`, `/frontend/version` |
+| Backend | `/backend/healthz`, `/backend/version` |
+
+The internal container `/healthz` route remains private and is not used as an external ALB smoke-test path.
+
+## Rollback
+
+If a deployment fails health checks, ECS stability checks, or smoke tests, the deployment must stop and roll back the affected service to its immediately preceding known-good task-definition revision. The workflow must then wait for stability and rerun the relevant smoke tests. Rollback uses the prior immutable image digest; it must never rely on a mutable `latest` tag.
+
+## Scope limits
+
+Blue/green deployment and notification integrations are optional enhancements and disabled in the assessment baseline. Baseline rollback is an ECS rolling deployment rollback for one affected service at a time.

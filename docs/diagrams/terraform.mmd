@@ -1,0 +1,43 @@
+flowchart TB
+    oidc[Existing GitHub OIDC provider] --> bootstrap[CloudFormation bootstrap]
+    bootstrap --> state[S3 Terraform state bucket<br/>private and versioned]
+    bootstrap --> lock[DynamoDB Terraform state lock table]
+    bootstrap --> roles[Separate GitHub OIDC roles<br/>PR plan; sandbox apply/destroy; sandbox ECS deploy]
+
+    state --> root[Terraform root configuration]
+    lock --> root
+    roles --> root
+    root --> foundations[Foundations]
+    root --> workloads[Workload stacks]
+
+    subgraph foundations
+        network[network<br/>VPC, subnets, routes, IGW, NAT]
+        identity[security-identity<br/>IAM, security groups, Secrets Manager]
+        platform[platform<br/>ECR, ECS cluster, ALB]
+        scaling[ECS service scaling<br/>CPU target tracking: 1–2 tasks, 65%]
+        edge[edge<br/>Route 53 records and ACM]
+    end
+
+    subgraph workloads
+        data[data<br/>RDS PostgreSQL and backups]
+        backend[backend-service<br/>task definition and ECS service]
+        frontend[frontend-service<br/>task definition and ECS service]
+        observability[observability<br/>CloudWatch log groups and alarms]
+    end
+
+    network --> identity
+    identity --> platform
+    platform --> edge
+    platform --> scaling
+    network --> data
+    identity --> data
+    platform --> backend
+    scaling --> backend
+    edge --> backend
+    data --> backend
+    platform --> frontend
+    scaling --> frontend
+    edge --> frontend
+    edge --> observability
+    backend --> observability
+    frontend --> observability

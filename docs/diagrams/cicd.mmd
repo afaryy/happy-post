@@ -1,0 +1,41 @@
+flowchart TB
+    developer[Developer] --> pr[Pull request]
+    pr --> same_repo{Same-repository PR?}
+    same_repo -->|No| fork_validation[Tests, linting, security scans,<br/>and Terraform init -backend=false]
+    same_repo -->|Yes| checks_start[Required PR checks]
+
+    subgraph pull_request_checks[Pull-request checks]
+        frontend_ci[Frontend tests and linting]
+        backend_ci[Backend tests and linting]
+        snyk[Snyk dependency scan]
+        sonar[SonarQube quality and security analysis]
+        trivy[Trivy repository, secret, IaC, and image scans]
+        terraform_checks[Terraform format, validate, TFLint, and plan]
+    end
+
+    checks_start --> frontend_ci
+    checks_start --> backend_ci
+    checks_start --> snyk
+    checks_start --> sonar
+    checks_start --> trivy
+    checks_start --> terraform_checks
+    frontend_ci --> merge[Protected merge to main]
+    backend_ci --> merge
+    snyk --> merge
+    sonar --> merge
+    trivy --> merge
+    terraform_checks --> merge
+
+    merge --> change{Changed scope}
+    change -->|Frontend or backend| build[Build and scan changed image]
+    build --> ecr[Push immutable digest to private ECR]
+    ecr --> sandbox[GitHub environment: sandbox<br/>OIDC and configuration boundary]
+    sandbox --> action[Deploy selected ECS service]
+    action --> verification[ECS stability and smoke test]
+    verification --> result{Successful?}
+    result -->|Yes| complete[Deployment complete]
+    result -->|No| rollback[Roll back affected ECS service<br/>to prior task definition and image digest]
+
+    manual_apply[Workflow dispatch:<br/>select immutable main commit] --> fresh_plan[Create fresh plan for selected commit]
+    fresh_plan --> terraform_sandbox[GitHub environment: sandbox]
+    terraform_sandbox --> apply[Apply that exact plan]

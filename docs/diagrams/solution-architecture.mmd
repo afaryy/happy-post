@@ -1,0 +1,12 @@
+flowchart TB
+    users[Internet users] --> cloudflare[Cloudflare DNS<br/>asksafe.ai parent zone]
+    cloudflare -->|delegates happy-post.asksafe.ai| route53[Route 53 public hosted zone]
+    route53 -->|A/AAAA alias resolution| alb[Internet-facing ALB<br/>HTTPS :443]
+    acm[ACM public certificate] -. "TLS certificate" .-> alb
+    alb -->|default /* and /frontend/*| frontend_tg[Frontend target group]
+    alb -->|higher-priority /api/* and /backend/*| backend_tg[Backend target group]
+    frontend_tg --> frontend[Frontend ECS Fargate service<br/>Next.js]
+    backend_tg --> backend[Backend ECS Fargate service<br/>FastAPI]
+    backend -->|PostgreSQL 5432 only| rds[Private RDS PostgreSQL]
+    frontend --> frontend_logs[CloudWatch Logs]
+    backend --> backend_logs[CloudWatch Logs]
