@@ -1,0 +1,29 @@
+[project]
+name = "happy-post-backend"
+version = "0.1.0"
+description = "Happy Post FastAPI backend MVP"
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.14,<1.15",
+  "fastapi==0.115.12",
+  "sqlalchemy>=2.0,<2.1",
+  "uvicorn[standard]>=0.34,<0.35",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28,<0.29",
+  "pytest>=8.3,<9",
+  "ruff>=0.11,<0.12",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
