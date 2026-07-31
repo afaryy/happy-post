@@ -58,6 +58,9 @@ secrets/
 # Editable Draw.io sources are owner-managed in Google Drive; commit SVG exports only
 docs/diagrams/*.drawio
 
+# Local agent planning artifacts; retain locally but exclude from assessment deliverables
+docs/superpowers/
+
 # OS and editor
 .DS_Store
 .idea/
