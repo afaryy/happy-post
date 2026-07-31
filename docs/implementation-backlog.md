@@ -1,6 +1,6 @@
 # Implementation Backlog
 
-The documentation baseline is complete. The remaining work is deliberately ordered so that the backend MVP is built before infrastructure and automation.
+The documentation baseline and application MVPs are complete. The remaining work is deliberately ordered so that local containers precede infrastructure and automation.
 
 ## P0 — Documentation baseline (complete)
 
@@ -10,16 +10,16 @@ The documentation baseline is complete. The remaining work is deliberately order
 
 ## P1 — Backend MVP
 
-- [ ] Create the FastAPI backend application.
-- [ ] Implement `/healthz`, `/version`, `/backend/healthz`, and `/backend/version`, plus the assessment API contract under `/api/*`.
-- [ ] Define the PostgreSQL data model and migration approach required by the backend.
-- [ ] Add unit tests, linting, dependency management, and local configuration examples without secrets.
+- [x] Create the FastAPI backend application.
+- [x] Implement `/healthz`, `/version`, `/backend/healthz`, and `/backend/version`, plus the assessment API contract under `/api/*`.
+- [x] Define the PostgreSQL data model and migration approach required by the backend.
+- [x] Add unit tests, linting, dependency management, and local configuration examples without secrets.
 
 ## P2 — Frontend MVP
 
-- [ ] Create the Next.js frontend application.
-- [ ] Integrate it with the backend’s `/api/*` contract.
-- [ ] Add frontend checks and `/healthz`, `/version`, `/frontend/healthz`, and `/frontend/version` endpoints.
+- [x] Create the Next.js frontend application.
+- [x] Integrate it with the backend’s `/api/*` contract.
+- [x] Add frontend checks and `/healthz`, `/version`, `/frontend/healthz`, and `/frontend/version` endpoints.
 
 ## P3 — Local containers
 
