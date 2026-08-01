@@ -4,10 +4,37 @@ Happy Post is a DevOps assessment project with a Next.js frontend and FastAPI ba
 
 ## Current status
 
-The MVP application source is present: a FastAPI posts API and a Next.js post board. Neither service has been containerised or deployed. Terraform, CloudFormation changes, GitHub Actions workflows, and AWS resources are deliberately still outstanding.
+The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. Terraform, CloudFormation changes, GitHub Actions workflows, AWS resources, database integration, and deployment are deliberately still outstanding.
 
 - [Backend MVP](backend/README.md): posts API, operational endpoints, PostgreSQL-ready schema and migration, tests, linting, and local configuration example.
 - [Frontend MVP](frontend/README.md): post board, backend API integration, operational endpoints, tests, linting, and local configuration example.
+
+## Run locally with containers
+
+Docker Compose defines exactly two local services: `backend` and `frontend`. It does
+not start PostgreSQL. From the repository root, run:
+
+```bash
+docker compose up --build -d
+docker compose ps
+docker compose down --remove-orphans
+```
+
+The frontend is available at `http://127.0.0.1:3000`; its relative `/api/posts`
+request is forwarded internally to `http://backend:8000`. The backend is available
+at `http://127.0.0.1:8000` by default. If port 8000 is temporarily in use, change
+only the non-sensitive host-side binding:
+
+```bash
+HAPPY_POST_BACKEND_HOST_PORT=18000 docker compose up --build -d
+HAPPY_POST_BACKEND_HOST_PORT=18000 docker compose ps
+HAPPY_POST_BACKEND_HOST_PORT=18000 docker compose down --remove-orphans
+```
+
+This keeps the backend container and internal frontend routing on `backend:8000`.
+Both host ports bind only to loopback. The images run as non-root users and contain
+no secrets. This local P3 work does not change the planned AWS ECS, ALB, OIDC, or
+RDS architecture.
 
 ## Canonical baseline
 

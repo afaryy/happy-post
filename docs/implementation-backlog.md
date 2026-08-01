@@ -23,9 +23,9 @@ The documentation baseline and application MVPs are complete. The remaining work
 
 ## P3 — Local containers
 
-- [ ] Add separate frontend and backend Dockerfiles.
-- [ ] Add local development orchestration only if it supports the documented assessment workflow.
-- [ ] Verify each image exposes only the needed runtime interface.
+- [x] Add separate frontend and backend Dockerfiles.
+- [x] Add local development orchestration only if it supports the documented assessment workflow.
+- [x] Verify each image exposes only the needed runtime interface.
 
 ## P4 — AWS foundation
 
