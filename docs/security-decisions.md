@@ -10,6 +10,18 @@ One GitHub environment does not mean one AWS role. Separate IAM roles preserve o
 
 Frontend and backend tasks use separate task roles, execution roles, security groups, image repositories, log groups, task-definition families, and ECS services. The frontend execution role pulls only its image and publishes frontend logs. The backend execution role pulls only its image, publishes backend logs, and is the only execution role allowed to retrieve the named database secret. Tasks remain private; only the ALB is internet-facing. The ALB security-group ingress is HTTPS only, and task security groups accept application traffic only from the ALB security group. RDS PostgreSQL is private, has no public route or public IP, and accepts TCP 5432 only from the backend security group.
 
+### Local P3 container boundary
+
+The local Compose stack has exactly two services, `backend` and `frontend`; it
+does not run PostgreSQL. Backend and frontend images use non-root runtime users.
+Their published ports are loopback-only: backend defaults to `127.0.0.1:8000` and
+frontend to `127.0.0.1:3000`. `HAPPY_POST_BACKEND_HOST_PORT` is a non-sensitive
+temporary host-port override (for example, `18000`); it does not change the
+container port or the internal frontend-to-backend route `http://backend:8000`.
+Dockerfiles, Compose, and their build contexts contain no credentials or secret
+values. This local-container work does not implement or alter ECS, ALB, OIDC, or
+RDS controls.
+
 ## Secrets and configuration
 
 No secret values belong in source control, documentation, GitHub variables, or container images. Database credentials are stored in AWS Secrets Manager and injected through the ECS backend task definition. Only the backend task execution role receives `secretsmanager:GetSecretValue` for the named database secret. The frontend task role has no AWS API permissions. The hosted-zone ID, `Z07821441TT04VLUXZXPO`, is non-sensitive configuration and may be stored as a Terraform input or CI variable.

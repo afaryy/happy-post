@@ -1,5 +1,24 @@
 # Deployment and Rollback
 
+## Local P3 runbook
+
+P3 provides local container validation only; it does not deploy to AWS, ECS, an
+ALB, OIDC, or RDS. From the repository root, use:
+
+```bash
+docker compose up --build -d
+docker compose ps
+docker compose down --remove-orphans
+```
+
+Compose runs only `backend` and `frontend`, with loopback bindings
+`127.0.0.1:8000` and `127.0.0.1:3000` by default. If another local process owns
+port 8000, use `HAPPY_POST_BACKEND_HOST_PORT=18000` before each command; this
+changes only the backend's host-side port. The frontend remains at
+`http://127.0.0.1:3000`, uses its container-local `/healthz`, and proxies
+`/api/posts` internally to `http://backend:8000`. Stop the local stack with the
+same override when one was used to start it.
+
 ## Deployment model
 
 After a protected merge to the default branch, the future delivery workflow determines which component changed, builds and tests that component, scans its image, publishes a private ECR image by immutable digest, and deploys only the selected ECS service through the `sandbox` GitHub environment. Sandbox has no required reviewers or manual approval gate.

@@ -3,8 +3,8 @@
 | Assessment need | Baseline decision | Evidence location |
 | --- | --- | --- |
 | Frontend and backend application delivery | Next.js frontend and FastAPI backend are separate services; both MVPs are implemented locally | [Architecture](architecture.md), [Backend MVP](../backend/README.md), [Frontend MVP](../frontend/README.md) |
-| Health and version endpoints | Component-scoped health and version routes are implemented for both MVPs | [Backend MVP](../backend/README.md), [Frontend MVP](../frontend/README.md) |
-| Containerisation | Two independently built images are required; Docker implementation is pending | [Implementation backlog](implementation-backlog.md) |
+| Health and version endpoints | Backend has `/healthz` and `/version`; frontend has container-local `/healthz` and `/version` plus public `/frontend/*` aliases | [Backend MVP](../backend/README.md), [Frontend MVP](../frontend/README.md), [`frontend/app/healthz/route.ts`](../frontend/app/healthz/route.ts), [`frontend/app/version/route.ts`](../frontend/app/version/route.ts) |
+| Containerisation | Separate non-root FastAPI and Next.js images are implemented; Compose defines only `backend` and `frontend`, loopback host bindings, health checks, and internal `backend:8000` routing | [`backend/Dockerfile`](../backend/Dockerfile), [`frontend/Dockerfile`](../frontend/Dockerfile), [`compose.yaml`](../compose.yaml), [Local containers validation](local-containers-validation.md) |
 | Automated tests and checks | Backend tests/linting and frontend checks are implemented locally; CI delivery is pending | [Backend MVP](../backend/README.md), [Frontend MVP](../frontend/README.md), [Implementation backlog](implementation-backlog.md) |
 | Image scanning and registry | Each workload has a private ECR repository and image digest | [Security decisions](security-decisions.md) |
 | ECS delivery | One cluster hosts two Fargate services behind an ALB | [Architecture](architecture.md) |
@@ -17,4 +17,4 @@
 | Least privilege | OIDC trust, separate operational roles, and narrow runtime permissions | [Security decisions](security-decisions.md) |
 | End-to-end TLS | Deferred optional enhancement, not baseline | [Architecture](architecture.md) |
 
-This table records the approved design and the completed application MVPs. Containers, Terraform, CI/CD, and AWS deployment have not yet been implemented.
+This table records the approved design, completed application MVPs, and completed local P3 containerisation. Terraform, CI/CD, AWS deployment, and RDS integration have not yet been implemented.
