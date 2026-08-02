@@ -18,7 +18,7 @@ CloudFormation owns the private versioned S3 state bucket and the DynamoDB lock 
 
 ## Runtime boundaries
 
-Frontend and backend tasks use separate task roles, execution roles, security groups, image repositories, log groups, task-definition families, and ECS services. The frontend execution role pulls only its image and publishes frontend logs. The backend execution role pulls only its image, publishes backend logs, and is the only execution role allowed to retrieve the named database secret. Tasks remain private; only the ALB is internet-facing. The ALB security-group ingress is HTTPS only, and task security groups accept application traffic only from the ALB security group. RDS PostgreSQL is private, has no public route or public IP, and accepts TCP 5432 only from the backend security group.
+The platform root defines separate frontend and backend task roles, execution roles, private image repositories, and component log groups. Both task roles have no identity-policy AWS API permissions. The frontend execution role can pull only its image and publish frontend logs; the backend execution role can pull only its image and publish backend logs. The later backend service stack alone adds named database-secret access to the backend execution role for ECS task-definition injection. Tasks remain private; only the ALB is internet-facing. The ALB security-group ingress is HTTPS only, and task security groups accept application traffic only from the ALB security group. RDS PostgreSQL is private, has no public route or public IP, and accepts TCP 5432 only from the backend security group.
 
 ### Local P3 container boundary
 

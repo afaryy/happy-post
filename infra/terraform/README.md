@@ -30,8 +30,22 @@ backend-only, and Secrets Manager controls. The deployed private RDS instance
 uses one-day retention without upgrading the account plan. A future paid
 environment must restore a seven-day-or-greater recovery objective.
 
-The implemented roots deliberately do not create ALB, ECS, ECR, ACM, Route 53
-records, or CI/CD workload resources.
+`foundations/platform` is implemented but not applied. It is deliberately
+independent of network and data state because ECR repositories, the ECS cluster,
+component log groups, and runtime IAM roles have no VPC or database dependency.
+It creates two private scan-on-push, immutable ECR repositories; one ECS cluster
+with Container Insights enabled; fourteen-day frontend and backend log groups;
+and separate frontend/backend task and execution roles. Task roles have no
+application AWS API permissions. Each execution role can pull only its own image
+and publish only to its own log group. The backend execution role receives named
+database-secret access only in the later backend service stack that injects it.
+The current lifecycle policies expire only untagged images after seven days. Do
+not add tagged-image retention until the image-publication workflow defines a
+protected immutable tag contract that retains the current and previous deployable
+digests for rollback.
+
+The currently implemented roots deliberately do not create an ALB, ACM, Route 53
+records, ECS task definitions or services, or CI/CD workload resources.
 
 ## State backend
 
@@ -42,6 +56,7 @@ The network root uses this non-secret backend configuration:
 | Bucket | `happy-post-tfstate-893794041695-ap-southeast-2` |
 | Network key | `sandbox/foundations/network/terraform.tfstate` |
 | Data key | `sandbox/stacks/data/terraform.tfstate` |
+| Platform key | `sandbox/foundations/platform/terraform.tfstate` |
 | Region | `ap-southeast-2` |
 | Lock table | `happy-post-sandbox-terraform-lock` |
 
@@ -58,6 +73,8 @@ terraform fmt -check -recursive infra/terraform
 terraform -chdir=infra/terraform/foundations/network validate
 terraform -chdir=infra/terraform/stacks/data init -backend=false
 terraform -chdir=infra/terraform/stacks/data validate
+terraform -chdir=infra/terraform/foundations/platform init -backend=false
+terraform -chdir=infra/terraform/foundations/platform validate
 ```
 
 For an authorised read-only review of the real state and AWS configuration, use
@@ -67,6 +84,7 @@ the approved short-lived AWS profile and initialise the declared backend:
 terraform -chdir=infra/terraform/foundations/network init
 AWS_PROFILE=happy-post-sandbox terraform -chdir=infra/terraform/foundations/network plan
 AWS_PROFILE=happy-post-sandbox terraform -chdir=infra/terraform/stacks/data plan -lock=false
+AWS_PROFILE=happy-post-sandbox terraform -chdir=infra/terraform/foundations/platform plan -lock=false
 ```
 
 Do not run `terraform apply` locally. Apply remains a future

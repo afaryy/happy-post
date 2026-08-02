@@ -31,7 +31,7 @@ The runtime diagram deliberately separates deployed traffic and network controls
 
 ![AWS delivery and control-plane architecture](diagrams/delivery-and-control-plane.drawio.svg)
 
-CloudFormation bootstrap creates the private versioned S3 Terraform state bucket, DynamoDB lock table, runtime permissions boundary, and distinct GitHub Actions roles while reusing the existing account-level GitHub OIDC provider. GitHub Actions uses separate Terraform plan, Terraform apply, ECR publish, and ECS deployment roles. Frontend and backend images are built, scanned, published, deployed, and rolled back independently.
+CloudFormation bootstrap creates the private versioned S3 Terraform state bucket, DynamoDB lock table, runtime permissions boundary, and distinct GitHub Actions roles while reusing the existing account-level GitHub OIDC provider. GitHub Actions uses separate Terraform plan, Terraform apply, ECR publish, and ECS deployment roles. The independent platform root defines the two private ECR repositories, ECS cluster, component log groups, and four runtime roles; it does not create a task definition or service. ECR uses immutable tags, scan-on-push, and seven-day cleanup of untagged images. Frontend and backend images are built, scanned, published, deployed, and rolled back independently.
 
 ## DNS and TLS Boundary
 
@@ -85,7 +85,7 @@ The sandbox environment is an OIDC/configuration boundary, not an approval gate:
 
 ## Terraform and Deployment Ownership
 
-Terraform owns foundations and stable configuration: networking, private RDS PostgreSQL and database subnets/security group, Secrets Manager database credentials, ALB/listeners, Route 53 and ACM records, ECR, ECS cluster/services, IAM, logging, and initial task definitions. The mandatory data stack has its own state and lifecycle.
+Terraform owns foundations and stable configuration: networking, private RDS PostgreSQL and database subnets/security group, Secrets Manager database credentials, ECR, ECS cluster, runtime IAM roles, logging, ALB/listeners, Route 53 and ACM records, ECS services, and initial task definitions. The mandatory data stack has its own state and lifecycle.
 
 CloudFormation bootstrap owns the S3 state bucket, DynamoDB lock table, runtime permissions boundary, and GitHub OIDC roles. Terraform uses the S3 backend with DynamoDB as the only locking mechanism. The version-controlled bootstrap source is [`infra/bootstrap/happy-post-terraform-bootstrap.yaml`](../infra/bootstrap/happy-post-terraform-bootstrap.yaml). The state bucket is retained; the lock table has deletion protection and is retained on bootstrap stack deletion or replacement.
 
