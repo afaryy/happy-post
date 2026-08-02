@@ -448,6 +448,13 @@ Resources:
                   - secretsmanager:GetSecretValue
                   - secretsmanager:PutSecretValue
                 Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-${EnvironmentName}-database-*"
+              - Sid: ReadHappyPostImageMetadata
+                Effect: Allow
+                Action:
+                  - ecr:DescribeImages
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-${EnvironmentName}-frontend"
+                  - !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-${EnvironmentName}-backend"
               - Sid: ChangeOnlyDelegatedRoute53Zone
                 Effect: Allow
                 Action:

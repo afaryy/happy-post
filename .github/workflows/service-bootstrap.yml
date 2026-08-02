@@ -1,0 +1,134 @@
+name: Bootstrap ECS Service
+
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: ECS component to create from an immutable ECR image digest.
+        required: true
+        type: choice
+        options:
+          - backend
+          - frontend
+      image_digest:
+        description: Exact SHA-256 digest from the matching Publish Immutable Images artifact.
+        required: true
+        type: string
+      source_commit:
+        description: Full lowercase main-commit SHA recorded in the matching digest artifact.
+        required: true
+        type: string
+      confirm:
+        description: Enter bootstrap-<component> to create the selected ECS service.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-2
+  TF_IN_AUTOMATION: "true"
+  TERRAFORM_APPLY_ROLE_ARN: arn:aws:iam::893794041695:role/happy-post-sandbox-terraform-apply
+
+jobs:
+  bootstrap-service:
+    name: Bootstrap selected ECS service
+    runs-on: ubuntu-latest
+    environment: sandbox
+    concurrency:
+      group: service-bootstrap-${{ inputs.component }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Validate confirmation and digest syntax
+        env:
+          COMPONENT: ${{ inputs.component }}
+          CONFIRM: ${{ inputs.confirm }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          test "$CONFIRM" = "bootstrap-$COMPONENT"
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          test "$IMAGE_DIGEST" != "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve immutable main commit
+        id: commit
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          commit_sha="$(git rev-parse origin/main)"
+          git checkout --detach "$commit_sha"
+          test "$(git rev-parse HEAD)" = "$commit_sha"
+          git cat-file -e "${{ inputs.source_commit }}^{commit}"
+          git merge-base --is-ancestor "${{ inputs.source_commit }}" origin/main
+          echo "commit_sha=$commit_sha" >> "$GITHUB_OUTPUT"
+          echo "Bootstrapping from immutable main commit: $commit_sha"
+
+      - name: Resolve selected service root
+        id: service
+        env:
+          COMPONENT: ${{ inputs.component }}
+        run: |
+          case "$COMPONENT" in
+            backend)
+              working_directory=infra/terraform/stacks/backend-service
+              repository=happy-post-sandbox-backend
+              variable_name=backend_image_digest
+              ;;
+            frontend)
+              working_directory=infra/terraform/stacks/frontend-service
+              repository=happy-post-sandbox-frontend
+              variable_name=frontend_image_digest
+              ;;
+            *) echo "Unsupported component: $COMPONENT"; exit 1 ;;
+          esac
+          test -d "$working_directory"
+          echo "working_directory=$working_directory" >> "$GITHUB_OUTPUT"
+          echo "repository=$repository" >> "$GITHUB_OUTPUT"
+          echo "variable_name=$variable_name" >> "$GITHUB_OUTPUT"
+
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.TERRAFORM_APPLY_ROLE_ARN }}
+          role-session-name: happy-post-service-bootstrap-${{ github.run_id }}
+
+      - name: Verify digest belongs to the selected ECR repository
+        env:
+          REPOSITORY: ${{ steps.service.outputs.repository }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          image_details="$(aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageDigest="$IMAGE_DIGEST" --output json)"
+          verified_digest="$(jq -r '.imageDetails[0].imageDigest' <<< "$image_details")"
+          test "$verified_digest" = "$IMAGE_DIGEST"
+          image_tag="sha-$SOURCE_COMMIT"
+          jq -e --arg image_tag "$image_tag" '.imageDetails[0].imageTags | index($image_tag) != null' <<< "$image_details" > /dev/null
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_wrapper: false
+
+      - name: Initialise remote state
+        run: terraform -chdir="${{ steps.service.outputs.working_directory }}" init -input=false
+
+      - name: Create exact service bootstrap plan
+        env:
+          WORKING_DIRECTORY: ${{ steps.service.outputs.working_directory }}
+          VARIABLE_NAME: ${{ steps.service.outputs.variable_name }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+        run: terraform -chdir="$WORKING_DIRECTORY" plan -input=false -lock-timeout=5m -var "$VARIABLE_NAME=$IMAGE_DIGEST" -out=tfplan
+
+      - name: Apply exact service bootstrap plan
+        run: terraform -chdir="${{ steps.service.outputs.working_directory }}" apply -input=false tfplan

@@ -35,11 +35,11 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Implement, apply, and validate the private RDS PostgreSQL data stack, database subnet group, and Secrets Manager credential integration through the manual `data` target.
 - [x] Record the approved Free Plan deviation: the active account rejects seven-day retention and Aurora Express Configuration cannot meet private VPC controls. The deployed RDS PostgreSQL 16.14 `db.t4g.micro` uses private VPC access, encrypted gp3 storage (20–40 GiB), Single-AZ, one-day PITR, documented windows, and final-snapshot lifecycle.
 - [x] Implement, apply, and reconcile the independent platform root: two private ECR repositories, one ECS cluster, component log groups, and separate frontend/backend task and execution roles bounded by the bootstrap permissions boundary.
-- [x] Define the public edge root: ACM certificate, HTTPS ALB, target groups, listener rules, and Route 53 records only inside the delegated hosted zone.
+- [x] Apply and validate the public edge root: ACM certificate, HTTPS ALB, target groups, listener rules, and Route 53 records only inside the delegated hosted zone.
 - [x] Define independent frontend and backend ECS service roots: required digest-pinned initial task definitions, private service networking, target-group attachment, backend-only RDS secret injection, and deployment-safe task-definition drift handling.
 - [x] Define frontend and backend CPU target-tracking scaling: minimum one task, maximum two tasks, 65% CPU target.
-- [ ] Apply the network HTTP redirect ingress, rotate the database secret to include `database_url`, and apply the edge root.
-- [ ] Publish and scan frontend and backend images, then apply each component service root with its real immutable digest.
+- [x] Apply the network HTTP redirect ingress, rotate the database secret to include `database_url`, and apply the edge root.
+- [ ] Publish and scan frontend and backend images, then bootstrap each component service root with its real immutable digest.
 - [ ] Perform the required isolated RDS restore test before the first database-changing release or migration.
 
 ## P5 — CI/CD and operational validation
@@ -48,7 +48,9 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Implement changed-component backend and frontend CI checks: locked dependencies, linting, unit tests, and frontend production build, without AWS credentials.
 - [x] Implement Trivy, Snyk, and SonarQube Cloud security scanning with explicit scanner gates and fork-safe secret boundaries.
 - [x] Remediate the Starlette HIGH findings and record the two approved, time-bound Trivy infrastructure exceptions for baseline sandbox trade-offs.
-- [ ] Implement image publication, ECS deployment, smoke tests, and rollback automation.
+- [x] Implement main-only changed-component image publication with a Trivy image gate, immutable ECR publication, and digest-handoff artifacts.
+- [x] Implement manual component-selected service bootstrap with immutable-digest validation and repository-specific ECR verification.
+- [ ] Implement post-bootstrap ECS deployment, smoke tests, and rollback automation.
 - [ ] Configure the single GitHub environment, `sandbox`, without required reviewers and validate role separation.
 
 ## Deferred options
