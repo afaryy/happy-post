@@ -51,8 +51,9 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Implement main-only changed-component image publication with a Trivy image gate, immutable ECR publication, and digest-handoff artifacts.
 - [x] Implement manual component-selected service bootstrap with immutable-digest validation and repository-specific ECR verification.
 - [x] Implement post-bootstrap component-selected ECS deployment, health verification, and known-good rollback workflows.
-- [ ] Restrict the single GitHub environment, `sandbox`, to deployment branch `main` while retaining no required reviewers; then validate plan, apply, publish, and deployment role separation.
-- [ ] Execute a post-bootstrap deployment and rollback rehearsal with a newly published immutable image before relying on the workflow for a release.
+- [x] Restrict the single GitHub environment, `sandbox`, to deployment branch `main` while retaining no required reviewers; then validate plan, apply, publish, and deployment role separation.
+- [x] Execute controlled backend and frontend ECS deployments and public HTTPS smoke tests through the post-bootstrap deployment workflow.
+- [ ] Rehearse component rollback only if time permits before assessment submission.
 
 ## Deferred options
 

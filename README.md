@@ -4,7 +4,7 @@ Happy Post is a cloud-native application with a Next.js frontend and FastAPI bac
 
 ## Current status
 
-The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network, private RDS PostgreSQL data, ECR/ECS platform, edge, and both digest-pinned ECS service roots are applied. Terraform, application, security, image-publication, initial-service bootstrap, post-bootstrap deployment, and rollback workflows are implemented. The deployed frontend and backend ALB targets are healthy.
+The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network, private RDS PostgreSQL data, ECR/ECS platform, edge, and both digest-pinned ECS service roots are applied. Terraform, application, security, image-publication, initial-service bootstrap, post-bootstrap deployment, and rollback workflows are implemented. The deployed frontend and backend services have been updated through the controlled ECS deployment workflow and their public HTTPS smoke tests pass.
 
 - [Backend MVP](backend/README.md): posts API, operational endpoints, PostgreSQL-ready schema and migration, tests, linting, and local configuration example.
 - [Frontend MVP](frontend/README.md): post board, backend API integration, operational endpoints, tests, linting, and local configuration example.
@@ -15,6 +15,10 @@ The MVP application source is present: a FastAPI posts API and a Next.js post bo
 - [Service bootstrap](.github/workflows/service-bootstrap.yml): manually creates one selected initial service only after repository-specific digest and immutable source-commit-tag verification.
 - [ECS deployment](.github/workflows/ecs-deploy.yml): manually updates one existing service with a verified immutable digest, then verifies ECS, ALB, and public HTTPS health.
 - [ECS rollback](.github/workflows/ecs-rollback.yml): manually restores one existing service to its immediately preceding known-good task-definition revision.
+
+## Deployed service verification
+
+The controlled ECS deployment workflow has successfully deployed both services. Backend smoke tests passed at `/backend/healthz` and `/backend/version`; the backend version response reports the deployed immutable image digest. Frontend smoke tests passed at `/healthz` and `/version`; the frontend version response currently reports the application version `0.1.0`. The rollback workflow is available for component-scoped recovery and should be rehearsed only if time permits before assessment submission.
 
 ## Run locally with containers
 
