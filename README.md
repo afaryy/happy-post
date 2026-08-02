@@ -49,7 +49,7 @@ Aurora architecture.
 - Delivery model: two images, two ECS services, one ECS cluster, and one HTTPS ALB
 - Database: private Aurora PostgreSQL Serverless cluster with one writer, accessed by the backend only
 - Database recovery: automated backups and point-in-time recovery with seven-day retention
-- Database sandbox guardrail: PostgreSQL 16.14, encrypted Aurora storage, and a 0–4 ACU Free Plan envelope; this is a cost ceiling, not workload sizing guidance
+- Database sandbox guardrail: PostgreSQL 16.14, encrypted Aurora storage, and a 0–1 ACU envelope. The zero minimum permits Aurora auto-pause when supported; one ACU is a deliberate assessment cost ceiling, not workload sizing guidance.
 - Terraform state: private versioned S3 state plus deletion-protected DynamoDB locking
 - ECS scaling: CPU target tracking for each service (1–2 tasks, 65% target)
 - Disabled optional services: WAF, Service Connect, blue/green deployment, VPC endpoints, notifications, and end-to-end TLS

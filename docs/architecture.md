@@ -110,7 +110,7 @@ An ECR push does not update ECS by itself. CI verifies the pushed immutable dige
 | --- | --- |
 | Engine | Aurora PostgreSQL 16.14 initially; automatic minor upgrades; verify availability in ap-southeast-2 before apply |
 | Runtime | One private `db.serverless` writer; no reader |
-| Capacity | 0–4 ACUs as a current Free Plan cost guardrail, with AWS auto-pause when the selected engine supports it; tune only after observing workload metrics |
+| Capacity | 0–1 ACUs: minimum zero permits AWS auto-pause when the selected engine supports it; one ACU is the assessment cost ceiling. Increase only through a reviewed Terraform change after observing workload metrics. |
 | Storage | Encrypted Aurora standard storage |
 | Recovery | Seven-day PITR; backup 15:30-16:00 UTC daily |
 | Maintenance | sun:16:30-sun:17:00 UTC |

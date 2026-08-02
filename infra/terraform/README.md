@@ -21,8 +21,9 @@ and creates only the private Aurora PostgreSQL Serverless data boundary:
 - a database subnet group using the two existing database subnets;
 - a fixed-name Secrets Manager credentials secret with a generated password;
 - one private Aurora PostgreSQL 16.14 `db.serverless` writer;
-- encrypted Aurora storage, a 0–4 ACU Free Plan cost guardrail, seven-day PITR
-  target, and the documented final-cluster-snapshot policy.
+- encrypted Aurora storage, a 0–1 ACU assessment cost guardrail (with a zero
+  minimum for supported auto-pause), seven-day PITR target, and the documented
+  final-cluster-snapshot policy.
 
 This replaced the earlier standard RDS instance design after the active Free Plan
 rejected its required seven-day retention. The first approved Aurora apply must
