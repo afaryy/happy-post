@@ -1,11 +1,11 @@
-output "db_cluster_identifier" {
-  description = "Aurora PostgreSQL cluster identifier."
-  value       = aws_rds_cluster.this.cluster_identifier
+output "db_instance_identifier" {
+  description = "RDS PostgreSQL instance identifier."
+  value       = aws_db_instance.this.identifier
 }
 
-output "db_cluster_endpoint" {
-  description = "Private Aurora PostgreSQL writer endpoint and port."
-  value       = aws_rds_cluster.this.endpoint
+output "db_instance_endpoint" {
+  description = "Private RDS PostgreSQL endpoint and port."
+  value       = aws_db_instance.this.endpoint
 }
 
 output "db_subnet_group_name" {
