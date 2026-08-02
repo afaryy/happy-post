@@ -673,8 +673,8 @@ Resources:
                   - ecs:DescribeServices
                   - ecs:UpdateService
                 Resource:
-                  - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/${ProjectName}-${EnvironmentName}/${ProjectName}-${EnvironmentName}-frontend"
-                  - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/${ProjectName}-${EnvironmentName}/${ProjectName}-${EnvironmentName}-backend"
+                  - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/${ProjectName}-${EnvironmentName}-cluster/${ProjectName}-${EnvironmentName}-frontend"
+                  - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/${ProjectName}-${EnvironmentName}-cluster/${ProjectName}-${EnvironmentName}-backend"
               - Sid: ReadClusterAndTasks
                 Effect: Allow
                 Action:
