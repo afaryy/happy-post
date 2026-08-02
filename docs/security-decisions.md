@@ -6,6 +6,8 @@ GitHub Actions authenticates to AWS with GitHub OIDC and temporary STS credentia
 
 Application CI runs backend and frontend lint, unit-test, and build checks without AWS credentials, secrets, or GitHub environment access. It is therefore safe for same-repository and fork pull requests.
 
+Security CI has no AWS credentials or GitHub environment access. Trivy scans secrets for every pull request and `main` push; any detected secret blocks the workflow pending verification. Its dependency and IaC scan blocks HIGH/CRITICAL findings. Snyk and SonarQube Cloud run only for same-repository pull requests and `main` pushes because GitHub does not provide repository secrets to fork pull requests. Snyk receives only `SNYK_TOKEN` and blocks HIGH/CRITICAL dependency or IaC findings. SonarQube Cloud receives only `SONAR_TOKEN` plus the non-sensitive `SONAR_ORGANIZATION` and `SONAR_PROJECT_KEY` variables; it scans the combined Happy Post project and waits for its quality gate. Container-image scanning is deferred until the image-publication workflow builds the frontend and backend images.
+
 One GitHub environment does not mean one AWS role. Separate IAM roles preserve operational boundaries for Terraform planning, Terraform apply/destroy, image publishing, and ECS deployment. The plan role is restricted to the approved repository's `pull_request` claim; Terraform apply/destroy and ECS deployment roles are restricted to its `environment:sandbox` claim; the ECR publish role is restricted to its `ref:refs/heads/main` claim.
 
 The initial Terraform controls use `happy-post-sandbox-terraform-plan` only in same-repository pull-request jobs. The plan job is fail-closed until the non-sensitive repository variable `ENABLE_TERRAFORM_PR_PLAN` is explicitly set to `true`. Backend-free validation is the only Terraform work available to forks. The test workflow maps changed files to a fixed allow-list of canonical roots and validates only affected implemented roots; a shared module or Terraform workflow change validates every implemented root. Apply and destroy use `happy-post-sandbox-terraform-apply` only from `environment:sandbox`, resolve and log the immutable `origin/main` SHA at dispatch, and create a fresh plan in the same job that applies it. Their `target` input is an allow-list of canonical Terraform roots, mapped to fixed directories rather than accepting a user-supplied path. A target missing from the resolved commit fails before credentials are configured. The workflow source contains role ARNs, which are non-secret account configuration; it contains no AWS access keys or secret values.
@@ -41,9 +43,18 @@ Images are versioned by immutable digest, stored in private ECR repositories, an
 ### Scanner gates and exceptions
 
 - Snyk and Trivy block HIGH and CRITICAL findings.
-- Any verified secret finding blocks the workflow.
+- Any detected secret finding blocks the workflow pending verification.
 - The SonarQube quality gate is required.
 - A documented exception requires an owner, rationale, expiry date, and approver. It is time-bound and must be removed or renewed before expiry.
+
+Current approved Trivy exceptions are limited to the following baseline trade-offs and are held in [`.trivyignore.yaml`](../.trivyignore.yaml), which the HIGH/CRITICAL Trivy vulnerability-and-IaC gate loads:
+
+| Finding | Path | Owner / approver | Expiry | Rationale |
+| --- | --- | --- | --- | --- |
+| `AWS-0132` | `infra/bootstrap/happy-post-terraform-bootstrap.yaml` | afaryy / afaryy | 2026-11-02 | The retained sandbox Terraform-state bucket uses SSE-S3; a customer-managed KMS key is deferred. |
+| `AWS-0104` | `infra/terraform/foundations/network/main.tf` | afaryy / afaryy | 2026-11-02 | Private frontend and backend tasks require HTTPS egress through the single sandbox NAT Gateway for ECR, CloudWatch, and external dependencies while VPC endpoints are deferred. |
+
+These exceptions do not suppress dependency or secret findings. They must be removed, renewed with a new approval, or replaced by an implemented security control before expiry.
 
 The permissions boundary, separate OIDC roles, narrowly scoped security groups, immutable images, scan gates, and time-bound exceptions are the baseline security-governance controls. They are reviewed through pull requests and must not be weakened without an explicit documented decision.
 

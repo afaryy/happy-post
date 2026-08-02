@@ -1,0 +1,18 @@
+misconfigurations:
+  - id: AWS-0132
+    paths:
+      - infra/bootstrap/happy-post-terraform-bootstrap.yaml
+    expired_at: 2026-11-02
+    statement: >-
+      Owner and approver: afaryy. The retained Terraform-state bucket uses SSE-S3
+      in the cost-conscious sandbox baseline; a customer-managed KMS key is deferred.
+      Reassess before expiry or when the encryption architecture changes.
+  - id: AWS-0104
+    paths:
+      - infra/terraform/foundations/network/main.tf
+    expired_at: 2026-11-02
+    statement: >-
+      Owner and approver: afaryy. Frontend and backend private tasks require HTTPS
+      egress through the sandbox NAT gateway for ECR, CloudWatch, and external
+      dependencies while VPC endpoints are deferred. Reassess before expiry or
+      when egress endpoints are introduced.
