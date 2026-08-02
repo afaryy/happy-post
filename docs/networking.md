@@ -9,3 +9,5 @@ The Internet Gateway serves the public ALB and the one sandbox NAT Gateway. Priv
 Security groups enforce this path: Internet to ALB on HTTPS 443; ALB to frontend and backend task security groups on their application ports; backend task security group to RDS on TCP 5432. The frontend and ALB have no direct path to RDS.
 
 Route 53, ACM, ECR, Secrets Manager, and CloudWatch are regional managed services outside the VPC. API Gateway, CloudFront, VPC endpoints, and end-to-end TLS are not assessment-baseline components.
+
+The unapplied Terraform implementation is in [`infra/terraform/foundations/network`](../infra/terraform/foundations/network). It configures the approved remote state key, enforces the documented route boundaries, and uses separate security-group rule resources to avoid cyclic dependencies between the ALB and service security groups.
