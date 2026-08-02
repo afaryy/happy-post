@@ -65,11 +65,11 @@ jobs:
         run: uv export --locked --no-dev --no-hashes --format requirements-txt --output-file requirements.txt
         working-directory: backend
 
-      - name: Synchronise locked backend runtime dependencies
-        run: uv sync --locked --no-dev
+      - name: Install locked backend dependencies for Snyk
+        run: |
+          uv venv --python 3.12 --seed .venv
+          .venv/bin/python -m pip install --requirement requirements.txt
         working-directory: backend
-        env:
-          UV_PROJECT_ENVIRONMENT: .venv
 
       - name: Set up Snyk CLI
         uses: snyk/actions/setup@8e119fbb6c251787721d34ba683ed48eba792766 # master at 2026-08-02
