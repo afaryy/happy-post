@@ -23,6 +23,13 @@ This document records the operational baseline for the single sandbox environmen
 - Restore testing is required before assessment submission and after every database-changing migration. Restore to an isolated temporary private instance, verify availability, approved private connectivity, SELECT 1, migration version, and row-count sanity check, record evidence, then remove the temporary instance.
 - A database change requires a backward-compatible migration plan and either a restore plan or a compensating migration before deployment.
 
+## Terraform state-backend operations
+
+- The private versioned S3 state bucket and DynamoDB lock table are bootstrap-owned shared controls, not Terraform workload resources.
+- The lock table is encrypted, deletion-protected, and retained when the bootstrap stack is deleted or replaced.
+- Never disable deletion protection to resolve a Terraform lock. Investigate the lock owner and use Terraform's documented lock-recovery procedure only after confirming no plan or apply is running.
+- A deliberate bootstrap teardown requires documented approval, safe removal of dependent state, disabling deletion protection, and an explicit delete of the retained lock table.
+
 ## Incident and rollback procedure
 
 1. Identify whether the incident affects frontend, backend, shared infrastructure, or the database.

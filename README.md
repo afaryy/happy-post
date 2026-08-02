@@ -47,7 +47,7 @@ RDS architecture.
 - Database: private Amazon RDS for PostgreSQL, accessed by the backend only
 - Database recovery: automated backups and point-in-time recovery with seven-day retention
 - RDS sandbox sizing: PostgreSQL 16.14, Single-AZ db.t4g.micro, encrypted gp3 storage (20–40 GiB)
-- Terraform state: private versioned S3 state plus DynamoDB locking
+- Terraform state: private versioned S3 state plus deletion-protected DynamoDB locking
 - ECS scaling: CPU target tracking for each service (1–2 tasks, 65% target)
 - Disabled optional services: WAF, Service Connect, blue/green deployment, VPC endpoints, notifications, and end-to-end TLS
 
@@ -92,6 +92,6 @@ The maintainable logical source is [solution architecture](docs/diagrams/solutio
 - [Git and pull-request conventions](docs/git-and-pr-conventions.md)
 - [Diagram sources](docs/diagrams/)
 
-## Before infrastructure bootstrap
+## Bootstrap status
 
-Supply the final GitHub repository subject, the existing GitHub OIDC provider ARN, and the `sandbox` GitHub environment. The approved backend inputs are state bucket `happy-post-tfstate-893794041695-ap-southeast-2`, state prefix `sandbox/`, lock table `happy-post-sandbox-terraform-lock`, and hosted-zone ID `Z07821441TT04VLUXZXPO`. CloudFormation creates the bucket and lock table, so confirm the bucket name is globally available and has not been manually created. Sandbox has no required reviewers; future production approval gates are out of scope. Before Terraform apply, verify the selected PostgreSQL 16.x minor is available in `ap-southeast-2`. Do not place credentials, tokens, or other secret values in this repository.
+CloudFormation bootstrap created the private state bucket `happy-post-tfstate-893794041695-ap-southeast-2` and lock table `happy-post-sandbox-terraform-lock`, using logical state prefix `sandbox/`. The state bucket is versioned and retained; the lock table is deletion-protected and retained on bootstrap stack delete or replacement. Sandbox has no required reviewers. A deliberate bootstrap teardown requires documented approval, safe removal of dependent Terraform state, disabling DynamoDB deletion protection, then explicit deletion of the retained lock table. Do not place credentials, tokens, or other secret values in this repository.
