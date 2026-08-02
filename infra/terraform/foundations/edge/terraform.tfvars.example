@@ -1,0 +1,3 @@
+# Non-sensitive sandbox values. Do not add Cloudflare credentials or certificate data.
+application_domain     = "happy-post.asksafe.ai"
+route53_hosted_zone_id = "Z07821441TT04VLUXZXPO"

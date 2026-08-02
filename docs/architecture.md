@@ -8,7 +8,7 @@ Happy Post is a single-environment AWS sandbox with two independently deployable
 flowchart LR
     users[Internet users] --> cloudflare[Cloudflare DNS<br/>asksafe.ai]
     cloudflare -->|NS delegation| route53[Route 53<br/>happy-post.asksafe.ai]
-    route53 -->|A/AAAA alias resolution| alb[Internet-facing ALB<br/>HTTPS :443]
+    route53 -->|A alias resolution| alb[Internet-facing ALB<br/>HTTPS :443]
     acm[ACM public certificate] -. "TLS certificate" .-> alb
     alb -->|/*| frontend[Frontend ECS Fargate<br/>Next.js]
     alb -->|/api/*| backend[Backend ECS Fargate<br/>FastAPI]
@@ -23,7 +23,7 @@ Cloudflare remains the parent DNS provider for asksafe.ai and delegates happy-po
 
 ![AWS sandbox runtime architecture](diagrams/aws-ecs-runtime-architecture.drawio.svg)
 
-The frontend and backend are deployed as independently versioned ECS Fargate services behind a shared HTTPS Application Load Balancer. Path-based routing sends `/*` traffic to the Next.js frontend and `/api/*` traffic to the FastAPI backend. Only the backend security group can connect to the private RDS PostgreSQL instance on TCP 5432. Database credentials are retrieved through ECS task-definition secret injection by the backend task execution role. Both services use separate ECR repositories, task-definition families, target groups, log groups, and deployment histories while sharing the ECS cluster, VPC, ALB, and application domain.
+The frontend and backend will be deployed as independently versioned ECS Fargate services behind a shared HTTPS Application Load Balancer. Path-based routing sends `/*` traffic to the Next.js frontend and `/api/*` traffic to the FastAPI backend. Only the backend security group can connect to the private RDS PostgreSQL instance on TCP 5432. The backend task definition injects only the `database_url` key from Secrets Manager through the backend task execution role. Both services use separate ECR repositories, task-definition families, target groups, log groups, and deployment histories while sharing the ECS cluster, VPC, ALB, and application domain.
 
 The runtime diagram deliberately separates deployed traffic and network controls from provisioning and CI/CD. Amazon ECR, Secrets Manager, CloudWatch, Route 53, and ACM are regional managed services outside the VPC. RDS is private in database subnets; Secrets Manager is not placed in a database subnet.
 
@@ -41,7 +41,7 @@ CloudFormation bootstrap creates the private versioned S3 Terraform state bucket
 | Hosted-zone ID | Z07821441TT04VLUXZXPO |
 | Application domain | happy-post.asksafe.ai |
 
-The hosted-zone ID is non-sensitive configuration. Terraform manages ACM DNS-validation and application records only inside the delegated Route 53 zone; it never manages Cloudflare parent-zone delegation. TLS terminates at the ALB. ALB-to-task traffic is HTTP; end-to-end TLS is deferred. API Gateway and CloudFront are not baseline components.
+The hosted-zone ID is non-sensitive configuration. The pending edge root manages ACM DNS-validation and application records only inside the delegated Route 53 zone; it never manages Cloudflare parent-zone delegation. It creates a port 80 listener that redirects to HTTPS and a port 443 listener with the ACM certificate. TLS terminates at the ALB. ALB-to-task traffic is HTTP; end-to-end TLS is deferred. API Gateway and CloudFront are not baseline components.
 
 ## Network Egress
 
@@ -60,7 +60,7 @@ Each service must expose container-local `/healthz` and `/version`, plus its pub
 
 ## ECS Service Scaling
 
-Each ECS service uses CPU target-tracking scaling: minimum one task, maximum two tasks, and a 65% CPU target. This is intentionally modest for sandbox cost control. Fargate supplies compute capacity, so no ECS cluster auto-scaling configuration is required.
+Each pending ECS service root defines CPU target-tracking scaling: minimum one task, maximum two tasks, a 65% CPU target, a 60-second scale-out cooldown, and a 300-second scale-in cooldown. This is intentionally modest for sandbox cost control. Fargate supplies compute capacity, so no ECS cluster auto-scaling configuration is required.
 
 ## CI/CD Delivery Architecture
 
@@ -89,7 +89,7 @@ Terraform owns foundations and stable configuration: networking, private RDS Pos
 
 CloudFormation bootstrap owns the S3 state bucket, DynamoDB lock table, runtime permissions boundary, and GitHub OIDC roles. Terraform uses the S3 backend with DynamoDB as the only locking mechanism. The version-controlled bootstrap source is [`infra/bootstrap/happy-post-terraform-bootstrap.yaml`](../infra/bootstrap/happy-post-terraform-bootstrap.yaml). The state bucket is retained; the lock table has deletion protection and is retained on bootstrap stack deletion or replacement.
 
-The version-controlled [`foundations/network`](../infra/terraform/foundations/network) root declares the applied two-AZ VPC, public/application/database subnet tiers, one NAT Gateway, route tables, and ALB/frontend/backend/database security-group boundaries. The separate [`stacks/data`](../infra/terraform/stacks/data) root reads only its network outputs and has its own `sandbox/stacks/data/terraform.tfstate` object. It has applied the private DB subnet group, fixed-name database credentials secret, and private RDS PostgreSQL instance. Application database integration remains a later workload step.
+The version-controlled [`foundations/network`](../infra/terraform/foundations/network) root declares the applied two-AZ VPC, public/application/database subnet tiers, one NAT Gateway, route tables, and ALB/frontend/backend/database security-group boundaries. The separate [`stacks/data`](../infra/terraform/stacks/data) root reads only its network outputs and has its own `sandbox/stacks/data/terraform.tfstate` object. It has applied the private DB subnet group, fixed-name database credentials secret, and private RDS PostgreSQL instance. The applied [`foundations/platform`](../infra/terraform/foundations/platform) root owns ECR, the cluster, log groups, and runtime roles. The pending [`foundations/edge`](../infra/terraform/foundations/edge) root consumes network state; the pending independent [`stacks/backend-service`](../infra/terraform/stacks/backend-service) and [`stacks/frontend-service`](../infra/terraform/stacks/frontend-service) roots consume their required remote-state outputs. Service roots require real scanned SHA-256 digests and cannot be safely applied before image publication. Application database persistence remains a later workload step.
 
 ## Bootstrap Inputs
 

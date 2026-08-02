@@ -34,11 +34,12 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Apply and reconcile the network root, including the backend-only PostgreSQL security-group boundary.
 - [x] Implement, apply, and validate the private RDS PostgreSQL data stack, database subnet group, and Secrets Manager credential integration through the manual `data` target.
 - [x] Record the approved Free Plan deviation: the active account rejects seven-day retention and Aurora Express Configuration cannot meet private VPC controls. The deployed RDS PostgreSQL 16.14 `db.t4g.micro` uses private VPC access, encrypted gp3 storage (20–40 GiB), Single-AZ, one-day PITR, documented windows, and final-snapshot lifecycle.
-- [x] Implement and validate the independent platform root: two private ECR repositories, one ECS cluster, component log groups, and separate frontend/backend task and execution roles bounded by the bootstrap permissions boundary.
-- [ ] Apply and reconcile the platform root through the manual `platform` target before creating task definitions or ECS services.
-- [ ] Implement the public edge: ACM certificate, HTTPS ALB, target groups, listener rules, and Route 53 records only inside the delegated hosted zone.
-- [ ] Implement the frontend and backend ECS service stacks: digest-ready initial task definitions, private service networking, target-group attachment, backend-only RDS secret injection, and deployment-safe task-definition drift handling.
-- [ ] Configure frontend and backend CPU target-tracking scaling: minimum one task, maximum two tasks, 65% CPU target.
+- [x] Implement, apply, and reconcile the independent platform root: two private ECR repositories, one ECS cluster, component log groups, and separate frontend/backend task and execution roles bounded by the bootstrap permissions boundary.
+- [x] Define the public edge root: ACM certificate, HTTPS ALB, target groups, listener rules, and Route 53 records only inside the delegated hosted zone.
+- [x] Define independent frontend and backend ECS service roots: required digest-pinned initial task definitions, private service networking, target-group attachment, backend-only RDS secret injection, and deployment-safe task-definition drift handling.
+- [x] Define frontend and backend CPU target-tracking scaling: minimum one task, maximum two tasks, 65% CPU target.
+- [ ] Apply the network HTTP redirect ingress, rotate the database secret to include `database_url`, and apply the edge root.
+- [ ] Publish and scan frontend and backend images, then apply each component service root with its real immutable digest.
 - [ ] Perform the required isolated RDS restore test before the first database-changing release or migration.
 
 ## P5 — CI/CD and operational validation

@@ -4,8 +4,8 @@ misconfigurations:
       - infra/terraform/stacks/data/main.tf
     expired_at: 2026-11-02
     statement: >-
-      Owner and approver: afaryy. The sandbox Aurora PostgreSQL Serverless v2
-      cluster uses AWS-managed encryption with storage_encrypted enabled. A
+      Owner and approver: afaryy. The sandbox RDS PostgreSQL instance uses
+      AWS-managed encryption with storage_encrypted enabled. A
       customer-managed KMS key is intentionally deferred to avoid expanding
       the sandbox IAM and key-management surface; reassess before expiry or
       when a customer-managed KMS key is selected.
@@ -26,3 +26,13 @@ misconfigurations:
       egress through the sandbox NAT gateway for ECR, CloudWatch, and external
       dependencies while VPC endpoints are deferred. Reassess before expiry or
       when egress endpoints are introduced.
+  - id: AWS-0053
+    paths:
+      - infra/terraform/foundations/edge/main.tf
+    expired_at: 2026-11-02
+    statement: >-
+      Owner and approver: afaryy. The internet-facing ALB is the approved
+      public HTTPS entry point for happy-post.asksafe.ai. It accepts only
+      HTTP for redirect and HTTPS for application traffic; private Fargate
+      services and RDS remain inaccessible from the internet. Reassess before
+      expiry or when the edge architecture changes.

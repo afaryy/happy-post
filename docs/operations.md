@@ -2,20 +2,22 @@
 
 ## Scope
 
-This document records the operational baseline for the single sandbox environment. The network and private RDS PostgreSQL data foundations are applied. The platform root is implemented but remains pending a future approved workflow-dispatch apply; workload resources remain pending.
+This document records the operational baseline for the single sandbox environment. The network, private RDS PostgreSQL data, and ECR/ECS platform foundations are applied. The edge and component-service roots are defined but remain unapplied until scanned immutable ECR digests are published.
 
 ## Service health and observability
 
 - Both services must expose container-local `/healthz` and `/version`. The frontend must additionally expose `/frontend/healthz` and `/frontend/version`; the backend must additionally expose `/backend/healthz` and `/backend/version` for public ALB validation.
 - The ALB publishes the component-specific public health routes defined in [Architecture](architecture.md).
-- The platform root defines component-specific CloudWatch log groups with fourteen-day sandbox retention. ECS task logs use them after the later service deployment.
+- The applied platform root defines component-specific CloudWatch log groups with fourteen-day sandbox retention. ECS task logs use them after the later service deployment.
+- Each future ECS service uses CPU target tracking: one to two tasks, 65% target CPU, 60-second scale-out cooldown, and 300-second scale-in cooldown.
 - Deployment verifies ECS service stability and the relevant public health route before it succeeds.
 - Notifications are intentionally outside the current baseline. Failed workflows and CloudWatch alarms remain visible in their respective consoles until a notification integration is separately approved.
 
 ## Database operations
 
 - RDS PostgreSQL remains private and is reachable only from the backend service.
-- Database credentials are held only in the fixed Secrets Manager secret `happy-post-sandbox-database-credentials`; operators must not retrieve or place them in repository files.
+- Database credentials are held only in the fixed Secrets Manager secret `happy-post-sandbox-database-credentials`; its `database_url` JSON key is injected at backend task launch. Operators must not retrieve or place it in repository files.
+- ECS retrieves Secrets Manager values only when a task starts; it does not refresh values inside an already-running task. After rotating the database secret, deploy a new backend task-definition revision or force a backend service deployment, wait for healthy targets, then retire the prior tasks.
 - RDS uses PostgreSQL 16.14 at creation with automatic minor-version upgrades enabled.
 - RDS uses one private `db.t4g.micro` instance in Single-AZ with encrypted gp3 storage (20 GiB allocated, 40 GiB maximum). It is intentionally cost-conscious sandbox sizing; changes require a reviewed Terraform change after observing CloudWatch CPU, storage, and connection metrics.
 - RDS automated backups and point-in-time recovery are configured for one day, the maximum permitted by the active Free Plan. Preferred backup window is 15:30-16:00 UTC daily; preferred maintenance window is sun:16:30-sun:17:00 UTC. This is an approved sandbox deviation from the former seven-day objective. A future paid environment must restore a seven-day-or-greater recovery objective.

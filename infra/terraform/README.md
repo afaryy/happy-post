@@ -30,8 +30,8 @@ backend-only, and Secrets Manager controls. The deployed private RDS instance
 uses one-day retention without upgrading the account plan. A future paid
 environment must restore a seven-day-or-greater recovery objective.
 
-`foundations/platform` is implemented but not applied. It is deliberately
-independent of network and data state because ECR repositories, the ECS cluster,
+`foundations/platform` is applied. It is deliberately independent of network and
+data state because ECR repositories, the ECS cluster,
 component log groups, and runtime IAM roles have no VPC or database dependency.
 It creates two private scan-on-push, immutable ECR repositories; one ECS cluster
 with Container Insights enabled; fourteen-day frontend and backend log groups;
@@ -44,8 +44,21 @@ not add tagged-image retention until the image-publication workflow defines a
 protected immutable tag contract that retains the current and previous deployable
 digests for rollback.
 
-The currently implemented roots deliberately do not create an ALB, ACM, Route 53
-records, ECS task definitions or services, or CI/CD workload resources.
+`foundations/edge` is defined but not applied. It reads only network state and
+creates the ACM certificate and DNS validation records inside the delegated Route
+53 zone, the public ALB, port 80 to 443 redirect, port 443 listener, target
+groups, deterministic route rules, and the Route 53 A alias. Apply the network
+HTTP ingress reconciliation before applying this root.
+
+`stacks/backend-service` and `stacks/frontend-service` are defined but not
+applied. Each reads its specific network, platform, and edge state; the backend
+also reads the data secret ARN. Each requires a real, scanned SHA-256 ECR digest
+as a non-default input. They create the initial Fargate task definition and
+service, deployment circuit breaker, target attachment, and one-to-two-task CPU
+target tracking. The backend root grants only its execution role
+`secretsmanager:GetSecretValue` for the fixed database secret and injects only
+the secret's `database_url` JSON key as `DATABASE_URL`. Do not apply either root
+until the image-publication process supplies a real digest.
 
 ## State backend
 
@@ -57,6 +70,9 @@ The network root uses this non-secret backend configuration:
 | Network key | `sandbox/foundations/network/terraform.tfstate` |
 | Data key | `sandbox/stacks/data/terraform.tfstate` |
 | Platform key | `sandbox/foundations/platform/terraform.tfstate` |
+| Edge key | `sandbox/foundations/edge/terraform.tfstate` |
+| Backend service key | `sandbox/stacks/backend-service/terraform.tfstate` |
+| Frontend service key | `sandbox/stacks/frontend-service/terraform.tfstate` |
 | Region | `ap-southeast-2` |
 | Lock table | `happy-post-sandbox-terraform-lock` |
 
@@ -75,6 +91,12 @@ terraform -chdir=infra/terraform/stacks/data init -backend=false
 terraform -chdir=infra/terraform/stacks/data validate
 terraform -chdir=infra/terraform/foundations/platform init -backend=false
 terraform -chdir=infra/terraform/foundations/platform validate
+terraform -chdir=infra/terraform/foundations/edge init -backend=false
+terraform -chdir=infra/terraform/foundations/edge validate
+terraform -chdir=infra/terraform/stacks/backend-service init -backend=false
+terraform -chdir=infra/terraform/stacks/backend-service validate
+terraform -chdir=infra/terraform/stacks/frontend-service init -backend=false
+terraform -chdir=infra/terraform/stacks/frontend-service validate
 ```
 
 For an authorised read-only review of the real state and AWS configuration, use
@@ -85,8 +107,10 @@ terraform -chdir=infra/terraform/foundations/network init
 AWS_PROFILE=happy-post-sandbox terraform -chdir=infra/terraform/foundations/network plan
 AWS_PROFILE=happy-post-sandbox terraform -chdir=infra/terraform/stacks/data plan -lock=false
 AWS_PROFILE=happy-post-sandbox terraform -chdir=infra/terraform/foundations/platform plan -lock=false
+AWS_PROFILE=happy-post-sandbox terraform -chdir=infra/terraform/foundations/edge plan -lock=false
 ```
 
 Do not run `terraform apply` locally. Apply remains a future
 workflow-dispatch-only GitHub Actions operation using the sandbox OIDC role and
-an exact fresh plan for an immutable `main` commit.
+an exact fresh plan for an immutable `main` commit. The service roots need real
+scanned image digests; their example values are intentionally non-deployable.

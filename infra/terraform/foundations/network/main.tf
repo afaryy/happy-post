@@ -197,7 +197,7 @@ resource "aws_security_group" "backend" {
 
 resource "aws_security_group" "database" {
   name        = "${local.name_prefix}-database"
-  description = "Backend-only PostgreSQL ingress for the future private Aurora cluster."
+  description = "Backend-only PostgreSQL ingress for the future private RDS instance."
   vpc_id      = aws_vpc.this.id
   egress      = []
 
@@ -220,6 +220,15 @@ resource "aws_vpc_security_group_ingress_rule" "alb_https" {
   cidr_ipv4         = "0.0.0.0/0"
   from_port         = 443
   to_port           = 443
+  ip_protocol       = "tcp"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_http" {
+  security_group_id = aws_security_group.alb.id
+  description       = "HTTP from the internet for HTTPS redirect"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  to_port           = 80
   ip_protocol       = "tcp"
 }
 

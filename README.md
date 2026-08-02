@@ -4,11 +4,11 @@ Happy Post is a cloud-native application with a Next.js frontend and FastAPI bac
 
 ## Current status
 
-The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network and private RDS PostgreSQL data foundations are applied; the independent ECR/ECS platform root is implemented and awaits a manual workflow-dispatch apply. Terraform, application, and security test workflows are implemented; the remaining AWS workload resources, application database integration, image publication, and deployment remain outstanding.
+The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network, private RDS PostgreSQL data, and independent ECR/ECS platform foundations are applied. The edge and independent service roots are defined but are not applied: services require real scanned ECR image digests. Terraform, application, and security test workflows are implemented; image publication and deployment remain outstanding.
 
 - [Backend MVP](backend/README.md): posts API, operational endpoints, PostgreSQL-ready schema and migration, tests, linting, and local configuration example.
 - [Frontend MVP](frontend/README.md): post board, backend API integration, operational endpoints, tests, linting, and local configuration example.
-- [Terraform foundation](infra/terraform/README.md): version constraints, remote state, applied sandbox network and RDS data roots, and the implemented ECR/ECS platform root awaiting apply.
+- [Terraform foundation](infra/terraform/README.md): version constraints, remote state, applied sandbox network, RDS data, and ECR/ECS platform roots, plus the pending edge and service roots.
 - [Terraform workflow controls](.github/workflows/terraform-plan.yml): backend-free PR validation plus manual target-selected plan, apply, and destroy controls.
 - [Application CI](.github/workflows/application-ci.yml): changed-component backend and frontend linting, unit tests, and frontend build checks.
 
@@ -69,7 +69,7 @@ RDS architecture.
 flowchart LR
     users[Internet users] --> cloudflare[Cloudflare DNS<br/>asksafe.ai]
     cloudflare -->|NS delegation| route53[Route 53<br/>happy-post.asksafe.ai]
-    route53 -->|A/AAAA alias resolution| alb[Internet-facing ALB<br/>HTTPS :443]
+    route53 -->|A alias resolution| alb[Internet-facing ALB<br/>HTTPS :443]
     acm[ACM public certificate] -. "TLS certificate" .-> alb
     alb -->|/*| frontend[Frontend ECS Fargate<br/>Next.js]
     alb -->|/api/*| backend[Backend ECS Fargate<br/>FastAPI]
