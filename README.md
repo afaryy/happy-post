@@ -4,11 +4,11 @@ Happy Post is a cloud-native application with a Next.js frontend and FastAPI bac
 
 ## Current status
 
-The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network and private RDS PostgreSQL data foundations are applied. Terraform, application, and security test workflows are implemented; the remaining AWS workload resources, application database integration, image publication, and deployment remain outstanding.
+The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network and private RDS PostgreSQL data foundations are applied; the independent ECR/ECS platform root is implemented and awaits a manual workflow-dispatch apply. Terraform, application, and security test workflows are implemented; the remaining AWS workload resources, application database integration, image publication, and deployment remain outstanding.
 
 - [Backend MVP](backend/README.md): posts API, operational endpoints, PostgreSQL-ready schema and migration, tests, linting, and local configuration example.
 - [Frontend MVP](frontend/README.md): post board, backend API integration, operational endpoints, tests, linting, and local configuration example.
-- [Terraform foundation](infra/terraform/README.md): version constraints, remote state, applied sandbox network, and applied private RDS data root.
+- [Terraform foundation](infra/terraform/README.md): version constraints, remote state, applied sandbox network and RDS data roots, and the implemented ECR/ECS platform root awaiting apply.
 - [Terraform workflow controls](.github/workflows/terraform-plan.yml): backend-free PR validation plus manual target-selected plan, apply, and destroy controls.
 - [Application CI](.github/workflows/application-ci.yml): changed-component backend and frontend linting, unit tests, and frontend build checks.
 

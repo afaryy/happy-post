@@ -2,13 +2,13 @@
 
 ## Scope
 
-This document records the operational baseline for the single sandbox environment. The network and private RDS PostgreSQL data foundations are applied; workload resources remain pending a future approved workflow-dispatch apply.
+This document records the operational baseline for the single sandbox environment. The network and private RDS PostgreSQL data foundations are applied. The platform root is implemented but remains pending a future approved workflow-dispatch apply; workload resources remain pending.
 
 ## Service health and observability
 
 - Both services must expose container-local `/healthz` and `/version`. The frontend must additionally expose `/frontend/healthz` and `/frontend/version`; the backend must additionally expose `/backend/healthz` and `/backend/version` for public ALB validation.
 - The ALB publishes the component-specific public health routes defined in [Architecture](architecture.md).
-- ECS task logs go to component-specific CloudWatch log groups.
+- The platform root defines component-specific CloudWatch log groups with fourteen-day sandbox retention. ECS task logs use them after the later service deployment.
 - Deployment verifies ECS service stability and the relevant public health route before it succeeds.
 - Notifications are intentionally outside the current baseline. Failed workflows and CloudWatch alarms remain visible in their respective consoles until a notification integration is separately approved.
 
