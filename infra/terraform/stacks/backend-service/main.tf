@@ -116,7 +116,6 @@ resource "aws_ecs_task_definition" "backend" {
         "awslogs-group"         = data.terraform_remote_state.platform.outputs.backend_log_group_name
         "awslogs-region"        = var.aws_region
         "awslogs-stream-prefix" = "backend"
-        "awslogs-create-group"  = "false"
         "mode"                  = "blocking"
       }
     }

@@ -69,7 +69,7 @@ resource "aws_ecs_task_definition" "frontend" {
       value = var.frontend_image_digest
     }]
     healthCheck = {
-      command     = ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/healthz || exit 1"]
+      command     = ["CMD", "node", "-e", "fetch('http://localhost:3000/healthz').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval    = 30
       timeout     = 5
       retries     = 3
@@ -81,7 +81,6 @@ resource "aws_ecs_task_definition" "frontend" {
         "awslogs-group"         = data.terraform_remote_state.platform.outputs.frontend_log_group_name
         "awslogs-region"        = var.aws_region
         "awslogs-stream-prefix" = "frontend"
-        "awslogs-create-group"  = "false"
         "mode"                  = "blocking"
       }
     }
