@@ -2,16 +2,18 @@
 
 ## Scope
 
-This document records the operational baseline for the single sandbox environment. The network, private RDS PostgreSQL data, ECR/ECS platform, and edge foundations are applied. The component-service roots remain unapplied until scanned immutable ECR digests are published and explicitly selected in the manual service-bootstrap workflow.
+This document records the operational baseline for the single sandbox environment. The network, private RDS PostgreSQL data, ECR/ECS platform, edge foundations, and both initial digest-pinned ECS services are applied. Frontend and backend ALB targets are healthy.
 
 ## Service health and observability
 
 - Both services must expose container-local `/healthz` and `/version`. The frontend must additionally expose `/frontend/healthz` and `/frontend/version`; the backend must additionally expose `/backend/healthz` and `/backend/version` for public ALB validation.
 - The ALB publishes the component-specific public health routes defined in [Architecture](architecture.md).
-- The applied platform root defines component-specific CloudWatch log groups with fourteen-day sandbox retention. ECS task logs use them after the later service deployment.
-- Each future ECS service uses CPU target tracking: one to two tasks, 65% target CPU, 60-second scale-out cooldown, and 300-second scale-in cooldown.
+- The applied platform root defines component-specific CloudWatch log groups with fourteen-day sandbox retention. Both ECS services write only to their matching group.
+- Each ECS service uses CPU target tracking: one to two tasks, 65% target CPU, 60-second scale-out cooldown, and 300-second scale-in cooldown.
 - Deployment verifies ECS service stability and the relevant public health route before it succeeds.
 - The `Publish Immutable Images` workflow creates a seven-day digest-handoff artifact for each changed component after a successful Trivy gate and ECR push. Before initial service creation, manually dispatch it from `main` with the required component or `all`. Use the matching artifact's `digest` and `source_commit` with `Bootstrap ECS Service`, select the same component, and enter `bootstrap-<component>`. The workflow validates the digest and full lowercase source SHA, rejects the all-zero example value, confirms that the digest belongs to the matching ECR repository with its `sha-<source_commit>` tag, then applies only that service root from immutable `main`.
+- `Bootstrap ECS Service` is initial-creation-only. For a later component release, use `Deploy ECS Service` with the matching image-publication `digest`, `source_commit`, and `deploy-<component>` confirmation. It verifies ECR provenance, records the currently healthy task definition as known-good, registers a new digest-pinned revision, updates only that service, waits for ECS stability and a healthy ALB target, then calls the component public HTTPS health URL. It automatically restores the captured predecessor if its post-update verification fails.
+- For an intentional component rollback, use `Roll Back ECS Service` with `rollback-<component>`. It selects only the immediately preceding task-definition revision that is tagged `HappyPostDeploymentStatus=known-good`; it fails safely if there is no such predecessor.
 - Notifications are intentionally outside the current baseline. Failed workflows and CloudWatch alarms remain visible in their respective consoles until a notification integration is separately approved.
 
 ## Database operations

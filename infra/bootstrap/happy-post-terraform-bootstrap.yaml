@@ -43,8 +43,8 @@ Parameters:
     Default: sandbox
     Description: >
       The single GitHub environment allowed to assume the Terraform apply/destroy
-      and ECS deployment roles. It is an OIDC/configuration boundary only; reviewer
-      and approval protection are not configured for this sandbox environment.
+      and ECS deployment roles. It is an OIDC/configuration boundary only; configure
+      its GitHub Environment deployment-branch rule to allow main and no reviewers.
 
 Resources:
   TerraformStateBucket:
@@ -659,10 +659,14 @@ Resources:
               - Sid: ReadTaskDefinitions
                 Effect: Allow
                 Action:
-                  - ecs:DescribeTaskDefinition
                   - ecs:ListTagsForResource
                 Resource:
                   - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/${ProjectName}-${EnvironmentName}-*:*"
+              - Sid: DescribeTaskDefinitionMetadata
+                Effect: Allow
+                Action:
+                  - ecs:DescribeTaskDefinition
+                Resource: "*"
               - Sid: UpdateHappyPostServices
                 Effect: Allow
                 Action:
