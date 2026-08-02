@@ -51,6 +51,7 @@ Current approved Trivy exceptions are limited to the following baseline trade-of
 
 | Finding | Path | Owner / approver | Expiry | Rationale |
 | --- | --- | --- | --- | --- |
+| `AWS-0079` | `infra/terraform/stacks/data/main.tf` | afaryy / afaryy | 2026-11-02 | The sandbox Aurora PostgreSQL Serverless v2 cluster uses AWS-managed encryption with `storage_encrypted` enabled. A customer-managed KMS key is deferred to avoid expanding the sandbox IAM and key-management surface. |
 | `AWS-0132` | `infra/bootstrap/happy-post-terraform-bootstrap.yaml` | afaryy / afaryy | 2026-11-02 | The retained sandbox Terraform-state bucket uses SSE-S3; a customer-managed KMS key is deferred. |
 | `AWS-0104` | `infra/terraform/foundations/network/main.tf` | afaryy / afaryy | 2026-11-02 | Private frontend and backend tasks require HTTPS egress through the single sandbox NAT Gateway for ECR, CloudWatch, and external dependencies while VPC endpoints are deferred. |
 
@@ -62,7 +63,7 @@ explicitly:
 
 | Finding | Scope | Owner / approver | Expiry | Rationale |
 | --- | --- | --- | --- | --- |
-| `SNYK-JS-NANOID-18506894` | Frontend `package-lock.json` dependency path | afaryy / afaryy | 2026-08-16 | The current Next.js 16.2.12 → PostCSS CommonJS dependency path reaches Nanoid 3.3.16. The reported fixed Nanoid 5 line is ESM-only and would break PostCSS's `require('nanoid/non-secure')`; no compatible direct upgrade is available. |
+| `SNYK-JS-NANOID-18506897` | Frontend `package-lock.json` dependency path | afaryy / afaryy | 2026-08-16 | The current Next.js 16.2.12 → PostCSS CommonJS dependency path reaches Nanoid 3.3.16. The reported fixed Nanoid 5 line is ESM-only and would break PostCSS's `require('nanoid/non-secure')`; no compatible direct upgrade is available. |
 
 This exception is limited to the named Snyk issue and expires automatically. It
 does not suppress any other frontend dependency, backend dependency, IaC, Trivy,

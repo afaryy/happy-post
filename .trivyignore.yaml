@@ -1,4 +1,14 @@
 misconfigurations:
+  - id: AWS-0079
+    paths:
+      - infra/terraform/stacks/data/main.tf
+    expired_at: 2026-11-02
+    statement: >-
+      Owner and approver: afaryy. The sandbox Aurora PostgreSQL Serverless v2
+      cluster uses AWS-managed encryption with storage_encrypted enabled. A
+      customer-managed KMS key is intentionally deferred to avoid expanding
+      the sandbox IAM and key-management surface; reassess before expiry or
+      when a customer-managed KMS key is selected.
   - id: AWS-0132
     paths:
       - infra/bootstrap/happy-post-terraform-bootstrap.yaml
