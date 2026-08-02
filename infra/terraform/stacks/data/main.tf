@@ -57,7 +57,7 @@ resource "aws_rds_cluster" "this" {
   vpc_security_group_ids = [data.terraform_remote_state.network.outputs.security_group_ids.database]
   storage_encrypted      = true
 
-  backup_retention_period      = 7
+  backup_retention_period      = 1
   preferred_backup_window      = "15:30-16:00"
   preferred_maintenance_window = "sun:16:30-sun:17:00"
   apply_immediately            = false

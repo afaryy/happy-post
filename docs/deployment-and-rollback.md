@@ -33,7 +33,7 @@ The Terraform test workflow runs backend-free validation for every Terraform-rel
 
 The bootstrap state bucket and DynamoDB lock table are not workload-destroy targets. The bucket is retained and the lock table is deletion-protected and retained. A deliberate bootstrap teardown requires documented approval, safe removal of all dependent Terraform state, disabling lock-table deletion protection, then explicit lock-table deletion.
 
-The Aurora data stack is provisioned separately from application services. Database migrations must be backward-compatible, run before the backend version that requires them, and have a documented restore or compensating-migration approach before deployment. The first approved data apply must stop if the Free Plan rejects the required seven-day backup retention; it must not lower the retention or upgrade the account plan as an automatic workaround.
+The Aurora data stack is provisioned separately from application services. Database migrations must be backward-compatible, run before the backend version that requires them, and have a documented restore or compensating-migration approach before deployment. The active Free Plan rejected seven-day retention for both the prior RDS design and the first Aurora attempt. The approved sandbox data stack therefore tests one-day PITR, the Aurora minimum; it must not upgrade the account plan automatically. A future paid environment must restore a seven-day-or-greater recovery objective.
 
 ## Verification
 

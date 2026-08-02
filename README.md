@@ -48,7 +48,7 @@ Aurora architecture.
 - Route 53 hosted-zone ID: `Z07821441TT04VLUXZXPO` (non-sensitive configuration)
 - Delivery model: two images, two ECS services, one ECS cluster, and one HTTPS ALB
 - Database: private Aurora PostgreSQL Serverless cluster with one writer, accessed by the backend only
-- Database recovery: automated backups and point-in-time recovery with seven-day retention
+- Database recovery: automated backups and point-in-time recovery with one-day retention, the Aurora minimum selected for active AWS Free Plan validation
 - Database sandbox guardrail: PostgreSQL 16.14, encrypted Aurora storage, and a 0–1 ACU envelope. The zero minimum permits Aurora auto-pause when supported; one ACU is a deliberate assessment cost ceiling, not workload sizing guidance.
 - Terraform state: private versioned S3 state plus deletion-protected DynamoDB locking
 - ECS scaling: CPU target tracking for each service (1–2 tasks, 65% target)

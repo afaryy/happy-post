@@ -22,13 +22,14 @@ and creates only the private Aurora PostgreSQL Serverless data boundary:
 - a fixed-name Secrets Manager credentials secret with a generated password;
 - one private Aurora PostgreSQL 16.14 `db.serverless` writer;
 - encrypted Aurora storage, a 0–1 ACU assessment cost guardrail (with a zero
-  minimum for supported auto-pause), seven-day PITR target, and the documented
-  final-cluster-snapshot policy.
+  minimum for supported auto-pause), one-day PITR as the approved Free Plan
+  validation candidate, and the documented final-cluster-snapshot policy.
 
 This replaced the earlier standard RDS instance design after the active Free Plan
-rejected its required seven-day retention. The first approved Aurora apply must
-verify that the same retention is accepted; it must not weaken the recovery
-target or upgrade the account plan automatically.
+rejected its required seven-day retention. The first Aurora apply confirmed that
+the same plan rejects seven-day Aurora retention. The approved sandbox tests the
+Aurora minimum of one day; it must not upgrade the account plan automatically.
+A future paid environment must restore a seven-day-or-greater recovery objective.
 
 The implemented roots deliberately do not create ALB, ECS, ECR, ACM, Route 53
 records, or CI/CD workload resources.
