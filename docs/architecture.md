@@ -89,6 +89,8 @@ Terraform owns foundations and stable configuration: networking, private RDS Pos
 
 CloudFormation bootstrap owns the S3 state bucket, DynamoDB lock table, runtime permissions boundary, and GitHub OIDC roles. Terraform uses the S3 backend with DynamoDB as the only locking mechanism. The version-controlled bootstrap source is [`infra/bootstrap/happy-post-terraform-bootstrap.yaml`](../infra/bootstrap/happy-post-terraform-bootstrap.yaml). The state bucket is retained; the lock table has deletion protection and is retained on bootstrap stack deletion or replacement.
 
+The version-controlled [`foundations/network`](../infra/terraform/foundations/network) root declares the two-AZ VPC, public/application/database subnet tiers, one NAT Gateway, route tables, and ALB/frontend/backend/database security-group boundaries. It uses its own `sandbox/foundations/network/terraform.tfstate` object and is locally validated but not yet applied.
+
 ## Bootstrap Inputs
 
 | Input | Approved value |

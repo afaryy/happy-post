@@ -30,7 +30,8 @@ The documentation baseline and application MVPs are complete. The remaining work
 ## P4 — AWS foundation
 
 - [x] Apply and post-bootstrap validate the CloudFormation bootstrap with the required OIDC, immutable GitHub subject, state bucket, DynamoDB locking, and retention controls.
-- [ ] Implement Terraform foundation and workload stacks using the documented ownership boundary.
+- [x] Implement and locally validate the remote-state configuration and two-AZ network foundation, including subnet, route, NAT, and security-group boundaries; do not apply it locally.
+- [ ] Implement the remaining Terraform foundation and workload stacks using the documented ownership boundary.
 - [ ] Implement the private RDS PostgreSQL data stack, database subnets/security group, and Secrets Manager credential integration.
 - [ ] Configure the approved sandbox RDS settings: PostgreSQL 16.x availability check, db.t4g.micro, Single-AZ, encrypted gp3 storage (20–40 GiB), seven-day PITR, documented windows, and final-snapshot lifecycle.
 - [ ] Configure frontend and backend CPU target-tracking scaling: minimum one task, maximum two tasks, 65% CPU target.
