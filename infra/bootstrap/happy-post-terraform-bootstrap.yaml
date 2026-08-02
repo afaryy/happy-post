@@ -215,6 +215,7 @@ Resources:
                   - acm:ListCertificates
                   - acm:ListTagsForCertificate
                   - application-autoscaling:Describe*
+                  - application-autoscaling:ListTagsForResource
                   - cloudwatch:DescribeAlarms
                   - cloudwatch:GetMetricData
                   - cloudwatch:GetMetricStatistics
