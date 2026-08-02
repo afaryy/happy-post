@@ -39,7 +39,7 @@ The documentation baseline and application MVPs are complete. The remaining work
 
 ## P5 — CI/CD and operational validation
 
-- [x] Implement Terraform format/validate/TFLint, same-repository PR-plan control, and workflow-dispatch-only apply/destroy controls with a fixed canonical-root target allow-list. The AWS-backed PR plan remains fail-closed until `ENABLE_TERRAFORM_PR_PLAN=true` is set after this workflow release is merged.
+- [x] Implement changed-root Terraform format/validate/TFLint, same-repository PR-plan control, and workflow-dispatch-only apply/destroy controls with a fixed canonical-root target allow-list. The AWS-backed PR plan remains fail-closed until `ENABLE_TERRAFORM_PR_PLAN=true` is set.
 - [ ] Implement application CI checks, image publication, ECS deployment, smoke tests, and rollback automation.
 - [ ] Configure the single GitHub environment, `sandbox`, without required reviewers and validate role separation.
 
