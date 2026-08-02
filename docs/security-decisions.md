@@ -47,6 +47,15 @@ Images are versioned by immutable digest, stored in private ECR repositories, an
 - The SonarQube quality gate is required.
 - A documented exception requires an owner, rationale, expiry date, and approver. It is time-bound and must be removed or renewed before expiry.
 
+Current approved Trivy exceptions are limited to the following baseline trade-offs and are held in [`.trivyignore.yaml`](../.trivyignore.yaml), which the HIGH/CRITICAL Trivy vulnerability-and-IaC gate loads:
+
+| Finding | Path | Owner / approver | Expiry | Rationale |
+| --- | --- | --- | --- | --- |
+| `AWS-0132` | `infra/bootstrap/happy-post-terraform-bootstrap.yaml` | afaryy / afaryy | 2026-11-02 | The retained sandbox Terraform-state bucket uses SSE-S3; a customer-managed KMS key is deferred. |
+| `AWS-0104` | `infra/terraform/foundations/network/main.tf` | afaryy / afaryy | 2026-11-02 | Private frontend and backend tasks require HTTPS egress through the single sandbox NAT Gateway for ECR, CloudWatch, and external dependencies while VPC endpoints are deferred. |
+
+These exceptions do not suppress dependency or secret findings. They must be removed, renewed with a new approval, or replaced by an implemented security control before expiry.
+
 The permissions boundary, separate OIDC roles, narrowly scoped security groups, immutable images, scan gates, and time-bound exceptions are the baseline security-governance controls. They are reviewed through pull requests and must not be weakened without an explicit documented decision.
 
 The Terraform apply role uses an explicit baseline action list rather than service-wide wildcard grants. Its Route 53 record changes are restricted to the delegated hosted-zone ARN. Terraform must tag every supported resource with `Project=happy-post` and `Environment=sandbox` so later IAM refinements can restrict mutation by resource tags and ARN.

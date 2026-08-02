@@ -5,7 +5,7 @@ description = "Happy Post FastAPI backend MVP"
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.14,<1.15",
-  "fastapi==0.115.12",
+  "fastapi==0.139.2",
   "sqlalchemy>=2.0,<2.1",
   "uvicorn[standard]>=0.34,<0.35",
 ]
