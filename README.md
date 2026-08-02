@@ -4,13 +4,15 @@ Happy Post is a cloud-native application with a Next.js frontend and FastAPI bac
 
 ## Current status
 
-The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network, private RDS PostgreSQL data, and independent ECR/ECS platform foundations are applied. The edge and independent service roots are defined but are not applied: services require real scanned ECR image digests. Terraform, application, and security test workflows are implemented; image publication and deployment remain outstanding.
+The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network, private RDS PostgreSQL data, ECR/ECS platform, and edge foundations are applied. The independent service roots remain unapplied until the P5 image-publication workflow supplies real scanned ECR image digests; the manual service-bootstrap workflow then creates one selected service. Terraform, application, security, image-publication, and controlled service-bootstrap workflows are implemented.
 
 - [Backend MVP](backend/README.md): posts API, operational endpoints, PostgreSQL-ready schema and migration, tests, linting, and local configuration example.
 - [Frontend MVP](frontend/README.md): post board, backend API integration, operational endpoints, tests, linting, and local configuration example.
-- [Terraform foundation](infra/terraform/README.md): version constraints, remote state, applied sandbox network, RDS data, and ECR/ECS platform roots, plus the pending edge and service roots.
+- [Terraform foundation](infra/terraform/README.md): version constraints, remote state, applied sandbox network, RDS data, ECR/ECS platform, and edge roots, plus the pending service roots.
 - [Terraform workflow controls](.github/workflows/terraform-plan.yml): backend-free PR validation plus manual target-selected plan, apply, and destroy controls.
 - [Application CI](.github/workflows/application-ci.yml): changed-component backend and frontend linting, unit tests, and frontend build checks.
+- [Image publication](.github/workflows/image-publish.yml): changed-component `main` publication plus a main-only manual initial publication, Trivy gate, immutable ECR publication, and digest handoff artifact.
+- [Service bootstrap](.github/workflows/service-bootstrap.yml): manually creates one selected service only after repository-specific digest and immutable source-commit-tag verification.
 
 ## Run locally with containers
 

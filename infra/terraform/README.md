@@ -44,11 +44,11 @@ not add tagged-image retention until the image-publication workflow defines a
 protected immutable tag contract that retains the current and previous deployable
 digests for rollback.
 
-`foundations/edge` is defined but not applied. It reads only network state and
+`foundations/edge` is applied. It reads only network state and
 creates the ACM certificate and DNS validation records inside the delegated Route
 53 zone, the public ALB, port 80 to 443 redirect, port 443 listener, target
-groups, deterministic route rules, and the Route 53 A alias. Apply the network
-HTTP ingress reconciliation before applying this root.
+groups, deterministic route rules, and the Route 53 A alias. The required
+network HTTP ingress reconciliation is applied.
 
 `stacks/backend-service` and `stacks/frontend-service` are defined but not
 applied. Each reads its specific network, platform, and edge state; the backend
@@ -58,7 +58,10 @@ service, deployment circuit breaker, target attachment, and one-to-two-task CPU
 target tracking. The backend root grants only its execution role
 `secretsmanager:GetSecretValue` for the fixed database secret and injects only
 the secret's `database_url` JSON key as `DATABASE_URL`. Do not apply either root
-until the image-publication process supplies a real digest.
+until the image-publication process supplies a real digest. Use the manual
+`Bootstrap ECS Service` workflow with the matching seven-day digest-handoff
+artifact; it validates the digest and verifies that it belongs to the selected
+repository before applying only the matching service root.
 
 ## State backend
 

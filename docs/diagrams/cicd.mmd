@@ -9,7 +9,7 @@ flowchart TB
         backend_ci[Backend tests and linting]
         snyk[Snyk dependency scan]
         sonar[SonarQube quality and security analysis]
-        trivy[Trivy repository, secret, IaC, and image scans]
+        trivy[Trivy repository, secret, and IaC scans]
         terraform_checks[Terraform format, validate, and TFLint]
     end
 
@@ -27,14 +27,13 @@ flowchart TB
     terraform_checks --> merge
 
     merge --> change{Changed scope}
-    change -->|Frontend or backend| build[Build and scan changed image]
-    build --> ecr[Push immutable digest to private ECR]
-    ecr --> sandbox[GitHub environment: sandbox<br/>OIDC and configuration boundary]
-    sandbox --> action[Deploy selected ECS service]
-    action --> verification[ECS stability and smoke test]
-    verification --> result{Successful?}
-    result -->|Yes| complete[Deployment complete]
-    result -->|No| rollback[Roll back affected ECS service<br/>to prior task definition and image digest]
+    change -->|Frontend or backend| build[Build changed image]
+    build --> image_trivy[Trivy image gate]
+    image_trivy --> ecr[Push immutable digest to matching private ECR repository]
+    ecr --> handoff[Upload seven-day digest-handoff artifact]
+    manual_bootstrap[Workflow dispatch:<br/>select component, digest, source commit, and confirm] --> validate_digest[Reject invalid/all-zero digest or invalid SHA;<br/>verify matching ECR repository and immutable SHA tag]
+    validate_digest --> bootstrap_sandbox[GitHub environment: sandbox<br/>Terraform apply role]
+    bootstrap_sandbox --> bootstrap[Apply matching service root<br/>to create initial ECS service]
 
     manual_plan[Workflow dispatch:<br/>select target] --> plan_sandbox[GitHub environment: sandbox<br/>read-only plan role]
     plan_sandbox --> rendered_plan[Create and upload rendered plan]

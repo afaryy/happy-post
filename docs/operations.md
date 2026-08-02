@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document records the operational baseline for the single sandbox environment. The network, private RDS PostgreSQL data, and ECR/ECS platform foundations are applied. The edge and component-service roots are defined but remain unapplied until scanned immutable ECR digests are published.
+This document records the operational baseline for the single sandbox environment. The network, private RDS PostgreSQL data, ECR/ECS platform, and edge foundations are applied. The component-service roots remain unapplied until scanned immutable ECR digests are published and explicitly selected in the manual service-bootstrap workflow.
 
 ## Service health and observability
 
@@ -11,6 +11,7 @@ This document records the operational baseline for the single sandbox environmen
 - The applied platform root defines component-specific CloudWatch log groups with fourteen-day sandbox retention. ECS task logs use them after the later service deployment.
 - Each future ECS service uses CPU target tracking: one to two tasks, 65% target CPU, 60-second scale-out cooldown, and 300-second scale-in cooldown.
 - Deployment verifies ECS service stability and the relevant public health route before it succeeds.
+- The `Publish Immutable Images` workflow creates a seven-day digest-handoff artifact for each changed component after a successful Trivy gate and ECR push. Before initial service creation, manually dispatch it from `main` with the required component or `all`. Use the matching artifact's `digest` and `source_commit` with `Bootstrap ECS Service`, select the same component, and enter `bootstrap-<component>`. The workflow validates the digest and full lowercase source SHA, rejects the all-zero example value, confirms that the digest belongs to the matching ECR repository with its `sha-<source_commit>` tag, then applies only that service root from immutable `main`.
 - Notifications are intentionally outside the current baseline. Failed workflows and CloudWatch alarms remain visible in their respective consoles until a notification integration is separately approved.
 
 ## Database operations
