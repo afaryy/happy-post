@@ -34,6 +34,13 @@ flowchart TB
     manual_bootstrap[Workflow dispatch:<br/>select component, digest, source commit, and confirm] --> validate_digest[Reject invalid/all-zero digest or invalid SHA;<br/>verify matching ECR repository and immutable SHA tag]
     validate_digest --> bootstrap_sandbox[GitHub environment: sandbox<br/>Terraform apply role]
     bootstrap_sandbox --> bootstrap[Apply matching service root<br/>to create initial ECS service]
+    handoff --> manual_deploy[Workflow dispatch:<br/>select component, digest, source commit, and confirm]
+    manual_deploy --> deploy_provenance[Verify matching ECR repository<br/>and immutable SHA tag]
+    deploy_provenance --> deploy_sandbox[GitHub environment: sandbox<br/>ECS deploy role]
+    deploy_sandbox --> deploy[Register digest-pinned revision,<br/>update one service, and smoke test]
+    deploy --> known_good[Tag healthy task definition<br/>as known-good]
+    manual_rollback[Workflow dispatch:<br/>select component and confirm] --> rollback_sandbox[GitHub environment: sandbox<br/>ECS deploy role]
+    rollback_sandbox --> rollback[Restore preceding known-good revision<br/>and smoke test]
 
     manual_plan[Workflow dispatch:<br/>select target] --> plan_sandbox[GitHub environment: sandbox<br/>read-only plan role]
     plan_sandbox --> rendered_plan[Create and upload rendered plan]

@@ -23,7 +23,7 @@ Cloudflare remains the parent DNS provider for asksafe.ai and delegates happy-po
 
 ![AWS sandbox runtime architecture](diagrams/aws-ecs-runtime-architecture.drawio.svg)
 
-The frontend and backend will be deployed as independently versioned ECS Fargate services behind a shared HTTPS Application Load Balancer. Path-based routing sends `/*` traffic to the Next.js frontend and `/api/*` traffic to the FastAPI backend. Only the backend security group can connect to the private RDS PostgreSQL instance on TCP 5432. The backend task definition injects only the `database_url` key from Secrets Manager through the backend task execution role. Both services use separate ECR repositories, task-definition families, target groups, log groups, and deployment histories while sharing the ECS cluster, VPC, ALB, and application domain.
+The frontend and backend are independently versioned ECS Fargate services behind a shared HTTPS Application Load Balancer. Path-based routing sends `/*` traffic to the Next.js frontend and `/api/*` traffic to the FastAPI backend. Only the backend security group can connect to the private RDS PostgreSQL instance on TCP 5432. The backend task definition injects only the `database_url` key from Secrets Manager through the backend task execution role. Both services use separate ECR repositories, task-definition families, target groups, log groups, and deployment histories while sharing the ECS cluster, VPC, ALB, and application domain.
 
 The runtime diagram deliberately separates deployed traffic and network controls from provisioning and CI/CD. Amazon ECR, Secrets Manager, CloudWatch, Route 53, and ACM are regional managed services outside the VPC. RDS is private in database subnets; Secrets Manager is not placed in a database subnet.
 
@@ -60,7 +60,7 @@ Each service must expose container-local `/healthz` and `/version`, plus its pub
 
 ## ECS Service Scaling
 
-Each pending ECS service root defines CPU target-tracking scaling: minimum one task, maximum two tasks, a 65% CPU target, a 60-second scale-out cooldown, and a 300-second scale-in cooldown. This is intentionally modest for sandbox cost control. Fargate supplies compute capacity, so no ECS cluster auto-scaling configuration is required.
+Each deployed ECS service uses CPU target-tracking scaling: minimum one task, maximum two tasks, a 65% CPU target, a 60-second scale-out cooldown, and a 300-second scale-in cooldown. This is intentionally modest for sandbox cost control. Fargate supplies compute capacity, so no ECS cluster auto-scaling configuration is required.
 
 ## CI/CD Delivery Architecture
 
@@ -71,15 +71,17 @@ flowchart TB
     merge --> scope{Changed scope}
     scope -->|Application| build[Build, Trivy scan, and push<br/>changed immutable image digest]
     build --> handoff[Seven-day digest-handoff artifact]
-    handoff --> bootstrap[Manual component-selected<br/>service bootstrap]
-    bootstrap --> sandbox[GitHub environment: sandbox<br/>OIDC and configuration boundary]
-    sandbox --> initial[Create selected initial ECS service]
+    handoff --> bootstrap[Manual component-selected<br/>initial-service bootstrap]
+    bootstrap --> initial[Create selected initial ECS service]
+    handoff --> deploy[Manual component-selected<br/>ECS deployment]
+    deploy --> verify[Wait for ECS and ALB health<br/>then run HTTPS smoke test]
+    verify --> rollback[Manual component-selected<br/>known-good rollback]
     manual_plan[Manual Terraform plan<br/>select target] --> fresh_plan[Workflow dispatch resolves immutable main commit]
     fresh_plan --> tf_sandbox[GitHub environment: sandbox]
     tf_sandbox --> apply[Apply that exact plan]
 ~~~
 
-The sandbox environment is an OIDC/configuration boundary, not an approval gate: it has no required reviewers. Pull requests run backend-free Terraform validation only and never receive AWS credentials. Terraform plan, apply, and destroy are workflow-dispatch-only operations: each resolves and logs the immutable `main` SHA and accepts only a fixed canonical-root target. Plan uses the read-only plan role; apply creates a fresh plan for that checkout and applies that exact plan through the separate apply role. P5.1 adds a distinct manual service-bootstrap control, which verifies an ECR digest then applies only the selected service root. Merge never applies Terraform. Detailed sources are [CI/CD diagram](diagrams/cicd.mmd) and [Terraform diagram](diagrams/terraform.mmd).
+The sandbox environment is an OIDC/configuration boundary, not an approval gate: it has no required reviewers. Pull requests run backend-free Terraform validation only and never receive AWS credentials. Terraform plan, apply, and destroy are workflow-dispatch-only operations: each resolves and logs the immutable `main` SHA and accepts only a fixed canonical-root target. Plan uses the read-only plan role; apply creates a fresh plan for that checkout and applies that exact plan through the separate apply role. Initial service bootstrap verifies an ECR digest then applies only the selected service root. Subsequent deployment and rollback workflows use the distinct ECS deployment role to update only one existing service. Merge never applies Terraform. Detailed sources are [CI/CD diagram](diagrams/cicd.mmd) and [Terraform diagram](diagrams/terraform.mmd).
 
 ## Terraform and Deployment Ownership
 
@@ -87,7 +89,7 @@ Terraform owns foundations and stable configuration: networking, private RDS Pos
 
 CloudFormation bootstrap owns the S3 state bucket, DynamoDB lock table, runtime permissions boundary, and GitHub OIDC roles. Terraform uses the S3 backend with DynamoDB as the only locking mechanism. The version-controlled bootstrap source is [`infra/bootstrap/happy-post-terraform-bootstrap.yaml`](../infra/bootstrap/happy-post-terraform-bootstrap.yaml). The state bucket is retained; the lock table has deletion protection and is retained on bootstrap stack deletion or replacement.
 
-The version-controlled [`foundations/network`](../infra/terraform/foundations/network) root declares the applied two-AZ VPC, public/application/database subnet tiers, one NAT Gateway, route tables, and ALB/frontend/backend/database security-group boundaries. The separate [`stacks/data`](../infra/terraform/stacks/data) root reads only its network outputs and has its own `sandbox/stacks/data/terraform.tfstate` object. It has applied the private DB subnet group, fixed-name database credentials secret, and private RDS PostgreSQL instance. The applied [`foundations/platform`](../infra/terraform/foundations/platform) root owns ECR, the cluster, log groups, and runtime roles; the applied [`foundations/edge`](../infra/terraform/foundations/edge) root consumes network state and owns ACM, ALB, and delegated-zone records. The pending independent [`stacks/backend-service`](../infra/terraform/stacks/backend-service) and [`stacks/frontend-service`](../infra/terraform/stacks/frontend-service) roots consume their required remote-state outputs. The manual service-bootstrap workflow requires a real scanned SHA-256 ECR digest and verifies it belongs to the selected component repository before it can apply one service root. Application database persistence remains a later workload step.
+The version-controlled [`foundations/network`](../infra/terraform/foundations/network) root declares the applied two-AZ VPC, public/application/database subnet tiers, one NAT Gateway, route tables, and ALB/frontend/backend/database security-group boundaries. The separate [`stacks/data`](../infra/terraform/stacks/data) root reads only its network outputs and has its own `sandbox/stacks/data/terraform.tfstate` object. It has applied the private DB subnet group, fixed-name database credentials secret, and private RDS PostgreSQL instance. The applied [`foundations/platform`](../infra/terraform/foundations/platform) root owns ECR, the cluster, log groups, and runtime roles; the applied [`foundations/edge`](../infra/terraform/foundations/edge) root consumes network state and owns ACM, ALB, and delegated-zone records. The applied independent [`stacks/backend-service`](../infra/terraform/stacks/backend-service) and [`stacks/frontend-service`](../infra/terraform/stacks/frontend-service) roots consume their required remote-state outputs and created the initial digest-pinned services. The bootstrap workflow is initial-creation-only. Later delivery registers a digest-pinned task-definition revision and updates only the selected existing service through the ECS deployment role. Application database persistence remains a later workload step.
 
 ## Bootstrap Inputs
 
@@ -100,7 +102,7 @@ The version-controlled [`foundations/network`](../infra/terraform/foundations/ne
 
 CloudFormation created the state bucket and lock table. The lock table must not be removed during normal bootstrap teardown: first remove dependent Terraform state safely, disable DynamoDB deletion protection through an approved operation, then explicitly remove the retained table only if teardown is required.
 
-An ECR push does not update ECS by itself. The manual service-bootstrap workflow verifies a supplied immutable digest and uses Terraform to create one selected initial service. A later delivery workflow will register a digest-pinned task-definition revision and update the selected existing service. Terraform ignores subsequent service task-definition drift so that it does not undo a valid deployment.
+An ECR push does not update ECS by itself. The manual service-bootstrap workflow verifies a supplied immutable digest and uses Terraform to create one selected initial service. The manual ECS deployment workflow verifies the same digest/source-commit provenance, registers a digest-pinned task-definition revision, updates only the selected existing service, and records known-good revisions for component-scoped rollback. Terraform ignores subsequent service task-definition drift so that it does not undo a valid deployment.
 
 ## Deployed RDS PostgreSQL Sandbox Configuration
 

@@ -50,18 +50,19 @@ creates the ACM certificate and DNS validation records inside the delegated Rout
 groups, deterministic route rules, and the Route 53 A alias. The required
 network HTTP ingress reconciliation is applied.
 
-`stacks/backend-service` and `stacks/frontend-service` are defined but not
-applied. Each reads its specific network, platform, and edge state; the backend
-also reads the data secret ARN. Each requires a real, scanned SHA-256 ECR digest
-as a non-default input. They create the initial Fargate task definition and
-service, deployment circuit breaker, target attachment, and one-to-two-task CPU
-target tracking. The backend root grants only its execution role
+`stacks/backend-service` and `stacks/frontend-service` are applied. Each reads
+its specific network, platform, and edge state; the backend also reads the data
+secret ARN. Each requires a real, scanned SHA-256 ECR digest as a non-default
+input. They created the initial Fargate task definition and service, deployment
+circuit breaker, target attachment, and one-to-two-task CPU target tracking. The
+backend root grants only its execution role
 `secretsmanager:GetSecretValue` for the fixed database secret and injects only
-the secret's `database_url` JSON key as `DATABASE_URL`. Do not apply either root
-until the image-publication process supplies a real digest. Use the manual
-`Bootstrap ECS Service` workflow with the matching seven-day digest-handoff
-artifact; it validates the digest and verifies that it belongs to the selected
-repository before applying only the matching service root.
+the secret's `database_url` JSON key as `DATABASE_URL`. `Bootstrap ECS Service`
+is initial-creation-only. For a later image revision, use `Deploy ECS Service`;
+it verifies the matching seven-day digest handoff, registers a task-definition
+revision, and updates only the selected existing service. Terraform ignores the
+service task-definition field after initial creation so it does not undo that
+delivery revision.
 
 ## State backend
 
@@ -113,7 +114,7 @@ AWS_PROFILE=happy-post-sandbox terraform -chdir=infra/terraform/foundations/plat
 AWS_PROFILE=happy-post-sandbox terraform -chdir=infra/terraform/foundations/edge plan -lock=false
 ```
 
-Do not run `terraform apply` locally. Apply remains a future
-workflow-dispatch-only GitHub Actions operation using the sandbox OIDC role and
-an exact fresh plan for an immutable `main` commit. The service roots need real
-scanned image digests; their example values are intentionally non-deployable.
+Do not run `terraform apply` locally. Apply remains a workflow-dispatch-only
+GitHub Actions operation using the sandbox OIDC role and an exact fresh plan for
+an immutable `main` commit. The service-root example values are intentionally
+non-deployable; post-bootstrap image delivery does not run Terraform.

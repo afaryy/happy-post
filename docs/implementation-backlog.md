@@ -39,7 +39,7 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Define independent frontend and backend ECS service roots: required digest-pinned initial task definitions, private service networking, target-group attachment, backend-only RDS secret injection, and deployment-safe task-definition drift handling.
 - [x] Define frontend and backend CPU target-tracking scaling: minimum one task, maximum two tasks, 65% CPU target.
 - [x] Apply the network HTTP redirect ingress, rotate the database secret to include `database_url`, and apply the edge root.
-- [ ] Publish and scan frontend and backend images, then bootstrap each component service root with its real immutable digest.
+- [x] Publish and scan frontend and backend images, then bootstrap each component service root with its real immutable digest.
 - [ ] Perform the required isolated RDS restore test before the first database-changing release or migration.
 
 ## P5 — CI/CD and operational validation
@@ -50,8 +50,9 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Remediate the Starlette HIGH findings and record the two approved, time-bound Trivy infrastructure exceptions for baseline sandbox trade-offs.
 - [x] Implement main-only changed-component image publication with a Trivy image gate, immutable ECR publication, and digest-handoff artifacts.
 - [x] Implement manual component-selected service bootstrap with immutable-digest validation and repository-specific ECR verification.
-- [ ] Implement post-bootstrap ECS deployment, smoke tests, and rollback automation.
-- [ ] Configure the single GitHub environment, `sandbox`, without required reviewers and validate role separation.
+- [x] Implement post-bootstrap component-selected ECS deployment, health verification, and known-good rollback workflows.
+- [ ] Restrict the single GitHub environment, `sandbox`, to deployment branch `main` while retaining no required reviewers; then validate plan, apply, publish, and deployment role separation.
+- [ ] Execute a post-bootstrap deployment and rollback rehearsal with a newly published immutable image before relying on the workflow for a release.
 
 ## Deferred options
 
