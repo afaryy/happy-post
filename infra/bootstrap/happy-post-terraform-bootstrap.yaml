@@ -334,6 +334,8 @@ Resources:
                   - application-autoscaling:DescribeScalingPolicies
                   - application-autoscaling:PutScalingPolicy
                   - application-autoscaling:RegisterScalableTarget
+                  - application-autoscaling:TagResource
+                  - application-autoscaling:UntagResource
                   - cloudwatch:DeleteAlarms
                   - cloudwatch:DescribeAlarms
                   - cloudwatch:PutMetricAlarm
