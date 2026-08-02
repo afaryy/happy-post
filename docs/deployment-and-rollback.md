@@ -29,6 +29,8 @@ Terraform provisions the stable service infrastructure and initial task definiti
 
 Terraform infrastructure apply is separate from application delivery. It is started only by workflow dispatch for a selected immutable `main` commit, creates a fresh plan for that commit, and applies that exact plan through the `sandbox` OIDC role. A merge never applies Terraform. Destroy is separately dispatched with explicit confirmation.
 
+The bootstrap state bucket and DynamoDB lock table are not workload-destroy targets. The bucket is retained and the lock table is deletion-protected and retained. A deliberate bootstrap teardown requires documented approval, safe removal of all dependent Terraform state, disabling lock-table deletion protection, then explicit lock-table deletion.
+
 The RDS data stack is provisioned separately from application services. Database migrations must be backward-compatible, run before the backend version that requires them, and have a documented restore or compensating-migration approach before deployment.
 
 ## Verification

@@ -87,7 +87,7 @@ The sandbox environment is an OIDC/configuration boundary, not an approval gate:
 
 Terraform owns foundations and stable configuration: networking, private RDS PostgreSQL and database subnets/security group, Secrets Manager database credentials, ALB/listeners, Route 53 and ACM records, ECR, ECS cluster/services, IAM, logging, and initial task definitions. The mandatory data stack has its own state and lifecycle.
 
-CloudFormation bootstrap owns the S3 state bucket, DynamoDB lock table, runtime permissions boundary, and GitHub OIDC roles. Terraform uses the S3 backend with DynamoDB as the only locking mechanism.
+CloudFormation bootstrap owns the S3 state bucket, DynamoDB lock table, runtime permissions boundary, and GitHub OIDC roles. Terraform uses the S3 backend with DynamoDB as the only locking mechanism. The state bucket is retained; the lock table has deletion protection and is retained on bootstrap stack deletion or replacement.
 
 ## Bootstrap Inputs
 
@@ -98,7 +98,7 @@ CloudFormation bootstrap owns the S3 state bucket, DynamoDB lock table, runtime 
 | DynamoDB lock table | `happy-post-sandbox-terraform-lock` |
 | Route 53 hosted-zone ID | `Z07821441TT04VLUXZXPO` |
 
-CloudFormation creates the state bucket and lock table. Before bootstrap, confirm that the approved bucket name is globally available and has not been created manually.
+CloudFormation created the state bucket and lock table. The lock table must not be removed during normal bootstrap teardown: first remove dependent Terraform state safely, disable DynamoDB deletion protection through an approved operation, then explicitly remove the retained table only if teardown is required.
 
 An ECR push does not update ECS by itself. CI verifies the pushed immutable digest, registers a later digest-pinned task-definition revision, and updates the selected ECS service to that revision. Terraform ignores subsequent service task-definition drift so that it does not undo a valid deployment.
 

@@ -6,6 +6,10 @@ GitHub Actions authenticates to AWS with GitHub OIDC and temporary STS credentia
 
 One GitHub environment does not mean one AWS role. Separate IAM roles preserve operational boundaries for Terraform planning, Terraform apply/destroy, image publishing, and ECS deployment. The plan role is restricted to the approved repository's `pull_request` claim; Terraform apply/destroy and ECS deployment roles are restricted to its `environment:sandbox` claim; the ECR publish role is restricted to its `ref:refs/heads/main` claim.
 
+## Terraform state-backend protection
+
+CloudFormation owns the private versioned S3 state bucket and the DynamoDB lock table. The lock table is encrypted, deletion-protected, and retained on bootstrap stack deletion or replacement. This prevents an accidental bootstrap teardown from silently removing Terraform's concurrency lock. A deliberate teardown requires documented approval, safe removal of dependent state, disabling DynamoDB deletion protection, and an explicit delete of the retained table.
+
 ## Runtime boundaries
 
 Frontend and backend tasks use separate task roles, execution roles, security groups, image repositories, log groups, task-definition families, and ECS services. The frontend execution role pulls only its image and publishes frontend logs. The backend execution role pulls only its image, publishes backend logs, and is the only execution role allowed to retrieve the named database secret. Tasks remain private; only the ALB is internet-facing. The ALB security-group ingress is HTTPS only, and task security groups accept application traffic only from the ALB security group. RDS PostgreSQL is private, has no public route or public IP, and accepts TCP 5432 only from the backend security group.
