@@ -2,7 +2,7 @@
 
 ## Identity and GitHub controls
 
-GitHub Actions authenticates to AWS with GitHub OIDC and temporary STS credentials; no long-lived AWS access keys are stored in repository secrets. The only GitHub environment is `sandbox`; it supplies an OIDC/configuration boundary but has no required reviewers or manual approval gate. It is used by Terraform apply/destroy, ECS deployment, and rollback workflows. Same-repository pull-request Terraform plans use a separate `pull_request` OIDC subject and do not use the environment. Fork pull requests receive no AWS credentials and run backend-free validation only.
+GitHub Actions authenticates to AWS with GitHub OIDC and temporary STS credentials; no long-lived AWS access keys are stored in repository secrets. The only GitHub environment is `sandbox`; it supplies an OIDC/configuration boundary but has no required reviewers or manual approval gate. It is used by manual Terraform plan, apply, destroy, ECS deployment, and rollback workflows. Pull requests receive no AWS credentials and run backend-free validation only.
 
 Application CI runs backend and frontend lint, unit-test, and build checks without AWS credentials, secrets, or GitHub environment access. It is therefore safe for same-repository and fork pull requests.
 
@@ -10,7 +10,7 @@ Security CI has no AWS credentials or GitHub environment access. Trivy scans sec
 
 One GitHub environment does not mean one AWS role. Separate IAM roles preserve operational boundaries for Terraform planning, Terraform apply/destroy, image publishing, and ECS deployment. The plan role is restricted to the approved repository's `pull_request` claim; Terraform apply/destroy and ECS deployment roles are restricted to its `environment:sandbox` claim; the ECR publish role is restricted to its `ref:refs/heads/main` claim.
 
-The initial Terraform controls use `happy-post-sandbox-terraform-plan` only in same-repository pull-request jobs. The plan job is fail-closed until the non-sensitive repository variable `ENABLE_TERRAFORM_PR_PLAN` is explicitly set to `true`. Backend-free validation is the only Terraform work available to forks. The test workflow maps changed files to a fixed allow-list of canonical roots and validates only affected implemented roots; a shared module or Terraform workflow change validates every implemented root. Apply and destroy use `happy-post-sandbox-terraform-apply` only from `environment:sandbox`, resolve and log the immutable `origin/main` SHA at dispatch, and create a fresh plan in the same job that applies it. Their `target` input is an allow-list of canonical Terraform roots, mapped to fixed directories rather than accepting a user-supplied path. A target missing from the resolved commit fails before credentials are configured. The workflow source contains role ARNs, which are non-secret account configuration; it contains no AWS access keys or secret values.
+The Terraform test workflow maps changed files to a fixed allow-list of canonical roots and runs backend-free validation only; a shared module or Terraform workflow change validates every implemented root. The manual plan workflow uses `happy-post-sandbox-terraform-plan` only from `environment:sandbox`, resolves and logs immutable `origin/main`, and accepts a fixed canonical-root `target` mapped to a fixed directory. Apply and destroy use the separate `happy-post-sandbox-terraform-apply` role from the same environment; apply creates and applies an exact fresh plan in one job. A target missing from the resolved commit fails before credentials are configured. The workflow source contains role ARNs, which are non-secret account configuration; it contains no AWS access keys or secret values.
 
 ## Terraform state-backend protection
 
@@ -34,7 +34,7 @@ RDS controls.
 
 ## Secrets and configuration
 
-No secret values belong in source control, documentation, GitHub variables, or container images. Database credentials are stored in AWS Secrets Manager and injected through the ECS backend task definition. Only the backend task execution role receives `secretsmanager:GetSecretValue` for the named database secret. The frontend task role has no AWS API permissions. The hosted-zone ID, `Z07821441TT04VLUXZXPO`, is non-sensitive configuration and may be stored as a Terraform input or CI variable.
+No secret values belong in source control, documentation, GitHub variables, or container images. Terraform generates the database password and writes it to the fixed Secrets Manager secret `happy-post-sandbox-database-credentials`; it is sensitive in Terraform state and is never an output. The bootstrap apply role receives only `secretsmanager:PutSecretValue` to create that version. The read-only manual plan role receives `secretsmanager:GetSecretValue` only for the same secret so the provider can refresh its managed secret-version state; it has no write permission. Database credentials are injected through the ECS backend task definition; the backend task execution role is the only runtime workload role with `secretsmanager:GetSecretValue` for the named database secret. The frontend task role has no AWS API permissions. The hosted-zone ID, `Z07821441TT04VLUXZXPO`, is non-sensitive configuration and may be stored as a Terraform input or CI variable.
 
 ## Image and security governance
 

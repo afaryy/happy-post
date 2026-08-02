@@ -10,7 +10,7 @@ flowchart TB
         snyk[Snyk dependency scan]
         sonar[SonarQube quality and security analysis]
         trivy[Trivy repository, secret, IaC, and image scans]
-        terraform_checks[Terraform format, validate, TFLint, and plan]
+        terraform_checks[Terraform format, validate, and TFLint]
     end
 
     checks_start --> frontend_ci
@@ -36,6 +36,8 @@ flowchart TB
     result -->|Yes| complete[Deployment complete]
     result -->|No| rollback[Roll back affected ECS service<br/>to prior task definition and image digest]
 
+    manual_plan[Workflow dispatch:<br/>select target] --> plan_sandbox[GitHub environment: sandbox<br/>read-only plan role]
+    plan_sandbox --> rendered_plan[Create and upload rendered plan]
     manual_apply[Workflow dispatch:<br/>select target and confirm] --> fresh_plan[Resolve immutable main commit<br/>and create fresh plan]
     fresh_plan --> terraform_sandbox[GitHub environment: sandbox]
     terraform_sandbox --> apply[Apply that exact plan]

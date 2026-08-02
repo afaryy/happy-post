@@ -169,7 +169,7 @@ Resources:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Sid: SameRepositoryPullRequestTrust
+          - Sid: SandboxManualPlanTrust
             Effect: Allow
             Principal:
               Federated: !Ref ExistingGitHubOidcProviderArn
@@ -177,7 +177,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepositorySubject}:pull_request"
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepositorySubject}:environment:${GitHubEnvironmentName}"
       Policies:
         - PolicyName: TerraformStateReadAndLock
           PolicyDocument:
@@ -257,6 +257,11 @@ Resources:
                   - wafv2:Get*
                   - wafv2:List*
                 Resource: "*"
+              - Sid: ReadDatabaseSecretForTerraformRefresh
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-${EnvironmentName}-database-*"
       Tags:
         - Key: Project
           Value: !Ref ProjectName
@@ -431,6 +436,11 @@ Resources:
                   - secretsmanager:UpdateSecret
                   - sts:GetCallerIdentity
                 Resource: "*"
+              - Sid: WriteDatabaseSecretValue
+                Effect: Allow
+                Action:
+                  - secretsmanager:PutSecretValue
+                Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-${EnvironmentName}-database-*"
               - Sid: ChangeOnlyDelegatedRoute53Zone
                 Effect: Allow
                 Action:
@@ -708,7 +718,7 @@ Outputs:
     Description: DynamoDB lock-table ARN used by Terraform plan and apply roles.
     Value: !GetAtt TerraformLockTable.Arn
   TerraformPlanRoleArn:
-    Description: GitHub Actions role for same-repository pull-request Terraform plans.
+    Description: Sandbox-environment role for manually dispatched Terraform plans.
     Value: !GetAtt TerraformPlanRole.Arn
   TerraformApplyRoleArn:
     Description: Protected-environment role for approved Terraform applies.

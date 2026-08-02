@@ -31,16 +31,17 @@ The documentation baseline and application MVPs are complete. The remaining work
 
 - [x] Apply and post-bootstrap validate the CloudFormation bootstrap with the required OIDC, immutable GitHub subject, state bucket, DynamoDB locking, and retention controls.
 - [x] Implement and locally validate the remote-state configuration and two-AZ network foundation, including subnet, route, NAT, and security-group boundaries.
-- [ ] Reconcile the partially applied network root through the workflow: remove the duplicate database ingress declaration and retain the backend-only PostgreSQL rule before later stacks are applied.
+- [x] Apply and reconcile the network root, including the backend-only PostgreSQL security-group boundary.
 - [ ] Implement the remaining Terraform foundation and workload stacks using the documented ownership boundary.
-- [ ] Implement the private RDS PostgreSQL data stack, database subnets/security group, and Secrets Manager credential integration.
-- [ ] Configure the approved sandbox RDS settings: PostgreSQL 16.x availability check, db.t4g.micro, Single-AZ, encrypted gp3 storage (20–40 GiB), seven-day PITR, documented windows, and final-snapshot lifecycle.
+- [x] Implement and validate the private RDS PostgreSQL data stack, database subnet group, and Secrets Manager credential integration; do not apply it locally.
+- [x] Configure the approved sandbox RDS settings: PostgreSQL 16.14 availability check, db.t4g.micro, Single-AZ, encrypted gp3 storage (20–40 GiB), seven-day PITR, documented windows, and final-snapshot lifecycle.
+- [ ] Apply the data root through the manual `data` target only after the bootstrap IAM update has been deployed and the reviewed plan is approved.
 - [ ] Configure frontend and backend CPU target-tracking scaling: minimum one task, maximum two tasks, 65% CPU target.
 - [ ] Configure ACM and Route 53 records within the delegated hosted zone.
 
 ## P5 — CI/CD and operational validation
 
-- [x] Implement changed-root Terraform format/validate/TFLint, same-repository PR-plan control, and workflow-dispatch-only apply/destroy controls with a fixed canonical-root target allow-list. The AWS-backed PR plan remains fail-closed until `ENABLE_TERRAFORM_PR_PLAN=true` is set.
+- [x] Implement changed-root backend-free Terraform format/validate/TFLint on pull requests, plus workflow-dispatch-only plan/apply/destroy controls with a fixed canonical-root target allow-list.
 - [x] Implement changed-component backend and frontend CI checks: locked dependencies, linting, unit tests, and frontend production build, without AWS credentials.
 - [x] Implement Trivy, Snyk, and SonarQube Cloud security scanning with explicit scanner gates and fork-safe secret boundaries.
 - [x] Remediate the Starlette HIGH findings and record the two approved, time-bound Trivy infrastructure exceptions for baseline sandbox trade-offs.

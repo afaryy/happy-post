@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document records the operational baseline for the single sandbox environment. No AWS resources or operational automation exist yet; the requirements below govern the later implementation.
+This document records the operational baseline for the single sandbox environment. The network foundation is applied; RDS and workload resources remain pending a future approved workflow-dispatch apply.
 
 ## Service health and observability
 
@@ -15,7 +15,7 @@ This document records the operational baseline for the single sandbox environmen
 ## Database operations
 
 - RDS PostgreSQL remains private and is reachable only from the backend service.
-- Database credentials are held in Secrets Manager; operators must not retrieve or place them in repository files.
+- Database credentials are held only in the fixed Secrets Manager secret `happy-post-sandbox-database-credentials`; operators must not retrieve or place them in repository files.
 - RDS uses PostgreSQL 16.14 at initial creation with automatic minor-version upgrades enabled. Terraform verifies an available PostgreSQL 16.x release in ap-southeast-2 before apply.
 - RDS is a Single-AZ db.t4g.micro instance with encrypted gp3 storage: 20 GiB allocated and 40 GiB maximum autoscaled storage. It uses the AWS-managed RDS KMS key; customer-managed KMS is deferred.
 - RDS automated backups and point-in-time recovery retain seven days. Preferred backup window is 15:30-16:00 UTC daily; preferred maintenance window is sun:16:30-sun:17:00 UTC.

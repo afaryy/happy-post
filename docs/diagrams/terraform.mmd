@@ -2,7 +2,7 @@ flowchart TB
     oidc[Existing GitHub OIDC provider] --> bootstrap[CloudFormation bootstrap]
     bootstrap --> state[S3 Terraform state bucket<br/>private and versioned]
     bootstrap --> lock[DynamoDB Terraform state lock table]
-    bootstrap --> roles[Separate GitHub OIDC roles<br/>PR plan; sandbox apply/destroy; sandbox ECS deploy]
+    bootstrap --> roles[Separate GitHub OIDC roles<br/>sandbox plan; sandbox apply/destroy; sandbox ECS deploy]
 
     state --> root[Terraform root configuration]
     lock --> root

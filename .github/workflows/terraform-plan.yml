@@ -1,10 +1,21 @@
 name: Terraform Plan
 
 on:
-  pull_request:
-    paths:
-      - "infra/terraform/**"
-      - ".github/workflows/terraform-*.yml"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Terraform root to plan. The selected root must exist in the immutable main commit.
+        required: true
+        type: choice
+        options:
+          - network
+          - security-identity
+          - platform
+          - edge
+          - data
+          - backend-service
+          - frontend-service
+          - observability
 
 permissions:
   contents: read
@@ -12,20 +23,61 @@ permissions:
 env:
   AWS_REGION: ap-southeast-2
   TF_IN_AUTOMATION: "true"
-  NETWORK_WORKING_DIRECTORY: infra/terraform/foundations/network
   TERRAFORM_PLAN_ROLE_ARN: arn:aws:iam::893794041695:role/happy-post-sandbox-terraform-plan
 
 jobs:
-  plan-network:
-    name: Plan network foundation
-    if: github.event.pull_request.head.repo.full_name == github.repository && vars.ENABLE_TERRAFORM_PR_PLAN == 'true'
+  plan-selected-target:
+    name: Plan selected Terraform root
     runs-on: ubuntu-latest
+    environment: sandbox
+    concurrency:
+      group: terraform-${{ inputs.target }}-plan
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
     steps:
-      - name: Check out pull request commit
+      - name: Check out main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve immutable main commit
+        id: commit
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          commit_sha="$(git rev-parse origin/main)"
+          git checkout --detach "$commit_sha"
+          test "$(git rev-parse HEAD)" = "$commit_sha"
+          echo "commit_sha=$commit_sha" >> "$GITHUB_OUTPUT"
+          echo "Planning immutable main commit: $commit_sha"
+
+      - name: Confirm immutable checkout
+        env:
+          COMMIT_SHA: ${{ steps.commit.outputs.commit_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$COMMIT_SHA"
+          git merge-base --is-ancestor "$COMMIT_SHA" origin/main
+
+      - name: Resolve selected Terraform root
+        id: target
+        env:
+          TERRAFORM_TARGET: ${{ inputs.target }}
+        run: |
+          case "$TERRAFORM_TARGET" in
+            network) working_directory=infra/terraform/foundations/network ;;
+            security-identity) working_directory=infra/terraform/foundations/security-identity ;;
+            platform) working_directory=infra/terraform/foundations/platform ;;
+            edge) working_directory=infra/terraform/foundations/edge ;;
+            data) working_directory=infra/terraform/stacks/data ;;
+            backend-service) working_directory=infra/terraform/stacks/backend-service ;;
+            frontend-service) working_directory=infra/terraform/stacks/frontend-service ;;
+            observability) working_directory=infra/terraform/stacks/observability ;;
+            *) echo "Unsupported Terraform target: $TERRAFORM_TARGET"; exit 1 ;;
+          esac
+          test -d "$working_directory"
+          echo "working_directory=$working_directory" >> "$GITHUB_OUTPUT"
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -40,17 +92,17 @@ jobs:
           role-session-name: happy-post-terraform-plan-${{ github.run_id }}
 
       - name: Initialise remote state
-        run: terraform -chdir="$NETWORK_WORKING_DIRECTORY" init -input=false
+        run: terraform -chdir="${{ steps.target.outputs.working_directory }}" init -input=false
 
-      - name: Create plan for pull request commit
-        run: terraform -chdir="$NETWORK_WORKING_DIRECTORY" plan -input=false -lock-timeout=5m -no-color -out=tfplan
+      - name: Create plan
+        run: terraform -chdir="${{ steps.target.outputs.working_directory }}" plan -input=false -lock-timeout=5m -no-color -out=tfplan
 
       - name: Render plan
-        run: terraform -chdir="$NETWORK_WORKING_DIRECTORY" show -no-color tfplan > tfplan.txt
+        run: terraform -chdir="${{ steps.target.outputs.working_directory }}" show -no-color tfplan > tfplan.txt
 
       - name: Upload rendered plan
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-network-plan-${{ github.event.pull_request.number }}
-          path: ${{ env.NETWORK_WORKING_DIRECTORY }}/tfplan.txt
+          name: terraform-${{ inputs.target }}-plan-${{ steps.commit.outputs.commit_sha }}
+          path: ${{ steps.target.outputs.working_directory }}/tfplan.txt
           retention-days: 7
