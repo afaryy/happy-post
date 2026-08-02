@@ -63,7 +63,7 @@ explicitly:
 
 | Finding | Scope | Owner / approver | Expiry | Rationale |
 | --- | --- | --- | --- | --- |
-| `SNYK-JS-NANOID-18506897` | Frontend `package-lock.json` dependency path | afaryy / afaryy | 2026-08-16 | The current Next.js 16.2.12 → PostCSS CommonJS dependency path reaches Nanoid 3.3.16. The reported fixed Nanoid 5 line is ESM-only and would break PostCSS's `require('nanoid/non-secure')`; no compatible direct upgrade is available. |
+| `SNYK-JS-NANOID-18506894`, `SNYK-JS-NANOID-18506897` | Frontend `package-lock.json` dependency path | afaryy / afaryy | 2026-08-16 | The current Next.js 16.2.12 → PostCSS CommonJS dependency path reaches Nanoid 3.3.16. The reported fixed Nanoid 5 line is ESM-only and would break PostCSS's `require('nanoid/non-secure')`; no compatible direct upgrade is available. |
 
 This exception is limited to the named Snyk issue and expires automatically. It
 does not suppress any other frontend dependency, backend dependency, IaC, Trivy,
