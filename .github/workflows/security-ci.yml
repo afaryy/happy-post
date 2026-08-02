@@ -75,7 +75,7 @@ jobs:
         uses: snyk/actions/setup@8e119fbb6c251787721d34ba683ed48eba792766 # master at 2026-08-02
 
       - name: Scan frontend dependencies
-        run: snyk test --file=frontend/package-lock.json --severity-threshold=high
+        run: snyk test --file=frontend/package-lock.json --policy-path=frontend/.snyk --severity-threshold=high
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 

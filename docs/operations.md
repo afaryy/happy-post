@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document records the operational baseline for the single sandbox environment. The network foundation is applied; RDS and workload resources remain pending a future approved workflow-dispatch apply.
+This document records the operational baseline for the single sandbox environment. The network foundation is applied; Aurora and workload resources remain pending a future approved workflow-dispatch apply.
 
 ## Service health and observability
 
@@ -14,13 +14,13 @@ This document records the operational baseline for the single sandbox environmen
 
 ## Database operations
 
-- RDS PostgreSQL remains private and is reachable only from the backend service.
+- Aurora PostgreSQL Serverless remains private and is reachable only from the backend service.
 - Database credentials are held only in the fixed Secrets Manager secret `happy-post-sandbox-database-credentials`; operators must not retrieve or place them in repository files.
-- RDS uses PostgreSQL 16.14 at initial creation with automatic minor-version upgrades enabled. Terraform verifies an available PostgreSQL 16.x release in ap-southeast-2 before apply.
-- RDS is a Single-AZ db.t4g.micro instance with encrypted gp3 storage: 20 GiB allocated and 40 GiB maximum autoscaled storage. It uses the AWS-managed RDS KMS key; customer-managed KMS is deferred.
-- RDS automated backups and point-in-time recovery retain seven days. Preferred backup window is 15:30-16:00 UTC daily; preferred maintenance window is sun:16:30-sun:17:00 UTC.
-- Deletion protection is disabled for sandbox. Intentional destroy creates a uniquely named final snapshot, does not retain automated backups, and requires the snapshot owner to review and delete it within seven days unless retention is explicitly approved.
-- Restore testing is required before a release and after every database-changing migration. Restore to an isolated temporary private instance, verify availability, approved private connectivity, SELECT 1, migration version, and row-count sanity check, record evidence, then remove the temporary instance.
+- Aurora uses PostgreSQL 16.14 at initial creation with automatic minor-version upgrades enabled. Terraform verifies an available Aurora PostgreSQL 16.14 release in ap-southeast-2 before apply.
+- Aurora uses one private `db.serverless` writer with encrypted Aurora standard storage. Its 0–4 ACU range is a Free Plan cost guardrail rather than workload sizing; after the first workload metrics exist, tune it using CloudWatch CPU and connection observations.
+- Aurora automated backups and point-in-time recovery target seven days. Preferred backup window is 15:30-16:00 UTC daily; preferred maintenance window is sun:16:30-sun:17:00 UTC. The first approved apply must confirm that the active Free Plan accepts seven-day retention.
+- Deletion protection is disabled for sandbox. Intentional destroy creates a uniquely named final cluster snapshot, does not retain automated backups, and requires the snapshot owner to review and delete it within seven days unless retention is explicitly approved.
+- Restore testing is required before a release and after every database-changing migration. Restore to an isolated temporary private Aurora cluster and writer, verify availability, approved private connectivity, SELECT 1, migration version, and row-count sanity check, record evidence, then remove the temporary restore resources.
 - A database change requires a backward-compatible migration plan and either a restore plan or a compensating migration before deployment.
 
 ## Terraform state-backend operations

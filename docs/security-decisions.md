@@ -18,7 +18,7 @@ CloudFormation owns the private versioned S3 state bucket and the DynamoDB lock 
 
 ## Runtime boundaries
 
-Frontend and backend tasks use separate task roles, execution roles, security groups, image repositories, log groups, task-definition families, and ECS services. The frontend execution role pulls only its image and publishes frontend logs. The backend execution role pulls only its image, publishes backend logs, and is the only execution role allowed to retrieve the named database secret. Tasks remain private; only the ALB is internet-facing. The ALB security-group ingress is HTTPS only, and task security groups accept application traffic only from the ALB security group. RDS PostgreSQL is private, has no public route or public IP, and accepts TCP 5432 only from the backend security group.
+Frontend and backend tasks use separate task roles, execution roles, security groups, image repositories, log groups, task-definition families, and ECS services. The frontend execution role pulls only its image and publishes frontend logs. The backend execution role pulls only its image, publishes backend logs, and is the only execution role allowed to retrieve the named database secret. Tasks remain private; only the ALB is internet-facing. The ALB security-group ingress is HTTPS only, and task security groups accept application traffic only from the ALB security group. Aurora PostgreSQL Serverless is private, has no public route or public IP, and accepts TCP 5432 only from the backend security group.
 
 ### Local P3 container boundary
 
@@ -30,7 +30,7 @@ temporary host-port override (for example, `18000`); it does not change the
 container port or the internal frontend-to-backend route `http://backend:8000`.
 Dockerfiles, Compose, and their build contexts contain no credentials or secret
 values. This local-container work does not implement or alter ECS, ALB, OIDC, or
-RDS controls.
+Aurora controls.
 
 ## Secrets and configuration
 
@@ -51,10 +51,23 @@ Current approved Trivy exceptions are limited to the following baseline trade-of
 
 | Finding | Path | Owner / approver | Expiry | Rationale |
 | --- | --- | --- | --- | --- |
+| `AWS-0079` | `infra/terraform/stacks/data/main.tf` | afaryy / afaryy | 2026-11-02 | The sandbox Aurora PostgreSQL Serverless v2 cluster uses AWS-managed encryption with `storage_encrypted` enabled. A customer-managed KMS key is deferred to avoid expanding the sandbox IAM and key-management surface. |
 | `AWS-0132` | `infra/bootstrap/happy-post-terraform-bootstrap.yaml` | afaryy / afaryy | 2026-11-02 | The retained sandbox Terraform-state bucket uses SSE-S3; a customer-managed KMS key is deferred. |
 | `AWS-0104` | `infra/terraform/foundations/network/main.tf` | afaryy / afaryy | 2026-11-02 | Private frontend and backend tasks require HTTPS egress through the single sandbox NAT Gateway for ECR, CloudWatch, and external dependencies while VPC endpoints are deferred. |
 
 These exceptions do not suppress dependency or secret findings. They must be removed, renewed with a new approval, or replaced by an implemented security control before expiry.
+
+The only approved Snyk Open Source exception is held in
+[`frontend/.snyk`](../frontend/.snyk), which the frontend dependency scan loads
+explicitly:
+
+| Finding | Scope | Owner / approver | Expiry | Rationale |
+| --- | --- | --- | --- | --- |
+| `SNYK-JS-NANOID-18506894`, `SNYK-JS-NANOID-18506897` | Frontend `package-lock.json` dependency path | afaryy / afaryy | 2026-08-16 | The current Next.js 16.2.12 → PostCSS CommonJS dependency path reaches Nanoid 3.3.16. The reported fixed Nanoid 5 line is ESM-only and would break PostCSS's `require('nanoid/non-secure')`; no compatible direct upgrade is available. |
+
+This exception is limited to the named Snyk issue and expires automatically. It
+does not suppress any other frontend dependency, backend dependency, IaC, Trivy,
+secret, or SonarQube finding.
 
 The permissions boundary, separate OIDC roles, narrowly scoped security groups, immutable images, scan gates, and time-bound exceptions are the baseline security-governance controls. They are reviewed through pull requests and must not be weakened without an explicit documented decision.
 

@@ -44,7 +44,7 @@ Parameters:
     Description: >
       The single GitHub environment allowed to assume the Terraform apply/destroy
       and ECS deployment roles. It is an OIDC/configuration boundary only; reviewer
-      and approval protection is reserved for a future production environment.
+      and approval protection are not configured for this sandbox environment.
 
 Resources:
   TerraformStateBucket:
@@ -413,14 +413,17 @@ Resources:
                   - logs:PutRetentionPolicy
                   - logs:TagResource
                   - rds:AddTagsToResource
+                  - rds:CreateDBCluster
                   - rds:CreateDBInstance
                   - rds:CreateDBSubnetGroup
                   - rds:CreateDBParameterGroup
+                  - rds:DeleteDBCluster
                   - rds:DeleteDBInstance
                   - rds:DeleteDBSubnetGroup
                   - rds:DeleteDBParameterGroup
                   - rds:Describe*
                   - rds:ListTagsForResource
+                  - rds:ModifyDBCluster
                   - rds:ModifyDBInstance
                   - rds:ModifyDBParameterGroup
                   - rds:ModifyDBSubnetGroup

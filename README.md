@@ -4,7 +4,7 @@ Happy Post is a cloud-native application with a Next.js frontend and FastAPI bac
 
 ## Current status
 
-The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network foundation is applied. The private RDS data stack and its manual Terraform plan control are implemented and validated, but await a later approved workflow-dispatch apply. Terraform, application, and security test workflows are implemented; the remaining Terraform stacks, AWS workload resources, database integration, image publication, and deployment remain outstanding.
+The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network foundation is applied. The private Aurora PostgreSQL Serverless data stack and its manual Terraform plan control are implemented and validated, but await a later approved workflow-dispatch apply. Terraform, application, and security test workflows are implemented; the remaining Terraform stacks, AWS workload resources, database integration, image publication, and deployment remain outstanding.
 
 - [Backend MVP](backend/README.md): posts API, operational endpoints, PostgreSQL-ready schema and migration, tests, linting, and local configuration example.
 - [Frontend MVP](frontend/README.md): post board, backend API integration, operational endpoints, tests, linting, and local configuration example.
@@ -37,7 +37,7 @@ HAPPY_POST_BACKEND_HOST_PORT=18000 docker compose down --remove-orphans
 This keeps the backend container and internal frontend routing on `backend:8000`.
 Both host ports bind only to loopback. The images run as non-root users and contain
 no secrets. This local P3 work does not change the planned AWS ECS, ALB, OIDC, or
-RDS architecture.
+Aurora architecture.
 
 ## Canonical baseline
 
@@ -47,9 +47,9 @@ RDS architecture.
 - Application domain: `happy-post.asksafe.ai`
 - Route 53 hosted-zone ID: `Z07821441TT04VLUXZXPO` (non-sensitive configuration)
 - Delivery model: two images, two ECS services, one ECS cluster, and one HTTPS ALB
-- Database: private Amazon RDS for PostgreSQL, accessed by the backend only
+- Database: private Aurora PostgreSQL Serverless cluster with one writer, accessed by the backend only
 - Database recovery: automated backups and point-in-time recovery with seven-day retention
-- RDS sandbox sizing: PostgreSQL 16.14, Single-AZ db.t4g.micro, encrypted gp3 storage (20–40 GiB)
+- Database sandbox guardrail: PostgreSQL 16.14, encrypted Aurora storage, and a 0–4 ACU Free Plan envelope; this is a cost ceiling, not workload sizing guidance
 - Terraform state: private versioned S3 state plus deletion-protected DynamoDB locking
 - ECS scaling: CPU target tracking for each service (1–2 tasks, 65% target)
 - Disabled optional services: WAF, Service Connect, blue/green deployment, VPC endpoints, notifications, and end-to-end TLS
@@ -73,7 +73,7 @@ flowchart LR
     acm[ACM public certificate] -. "TLS certificate" .-> alb
     alb -->|/*| frontend[Frontend ECS Fargate<br/>Next.js]
     alb -->|/api/*| backend[Backend ECS Fargate<br/>FastAPI]
-    backend -->|PostgreSQL 5432| rds[Private RDS PostgreSQL]
+    backend -->|PostgreSQL 5432| aurora[Private Aurora PostgreSQL Serverless]
     frontend -. logs .-> logs[CloudWatch Logs]
     backend -. logs .-> logs
 ```

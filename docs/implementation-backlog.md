@@ -33,9 +33,9 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Implement and locally validate the remote-state configuration and two-AZ network foundation, including subnet, route, NAT, and security-group boundaries.
 - [x] Apply and reconcile the network root, including the backend-only PostgreSQL security-group boundary.
 - [ ] Implement the remaining Terraform foundation and workload stacks using the documented ownership boundary.
-- [x] Implement and validate the private RDS PostgreSQL data stack, database subnet group, and Secrets Manager credential integration; do not apply it locally.
-- [x] Configure the approved sandbox RDS settings: PostgreSQL 16.14 availability check, db.t4g.micro, Single-AZ, encrypted gp3 storage (20–40 GiB), seven-day PITR, documented windows, and final-snapshot lifecycle.
-- [ ] Apply the data root through the manual `data` target only after the bootstrap IAM update has been deployed and the reviewed plan is approved.
+- [x] Implement and validate the private Aurora PostgreSQL Serverless data stack, database subnet group, and Secrets Manager credential integration; do not apply it locally.
+- [x] Replace the standard RDS design because the active Free Plan rejected seven-day retention; retain PostgreSQL 16.14, private VPC access, encrypted Aurora storage, 0–4 ACU Free Plan guardrail, seven-day PITR target, documented windows, and final-cluster-snapshot lifecycle.
+- [ ] Update the bootstrap stack with approved Aurora cluster lifecycle permissions, then apply the data root through the manual `data` target only after the reviewed plan is approved. Stop if the Free Plan rejects seven-day Aurora retention.
 - [ ] Configure frontend and backend CPU target-tracking scaling: minimum one task, maximum two tasks, 65% CPU target.
 - [ ] Configure ACM and Route 53 records within the delegated hosted zone.
 
