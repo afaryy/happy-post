@@ -25,6 +25,8 @@ Cloudflare remains the parent DNS provider for asksafe.ai and delegates happy-po
 
 The frontend and backend are independently versioned ECS Fargate services behind a shared HTTPS Application Load Balancer. Path-based routing sends `/*` traffic to the Next.js frontend and `/api/*` traffic to the FastAPI backend. Only the backend security group can connect to the private RDS PostgreSQL instance on TCP 5432. The backend task definition injects only the `database_url` key from Secrets Manager through the backend task execution role. Both services use separate ECR repositories, task-definition families, target groups, log groups, and deployment histories while sharing the ECS cluster, VPC, ALB, and application domain.
 
+Both services have been deployed through the controlled ECS deployment workflow. Backend public smoke tests pass at `/backend/healthz` and `/backend/version`; frontend public smoke tests pass at `/healthz` and `/version`. The backend version endpoint reports the deployed immutable image digest, while the frontend version endpoint currently reports the application version `0.1.0`.
+
 The runtime diagram deliberately separates deployed traffic and network controls from provisioning and CI/CD. Amazon ECR, Secrets Manager, CloudWatch, Route 53, and ACM are regional managed services outside the VPC. RDS is private in database subnets; Secrets Manager is not placed in a database subnet.
 
 ## Delivery and Control Plane

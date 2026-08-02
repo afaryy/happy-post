@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document records the operational baseline for the single sandbox environment. The network, private RDS PostgreSQL data, ECR/ECS platform, edge foundations, and both initial digest-pinned ECS services are applied. Frontend and backend ALB targets are healthy.
+This document records the operational baseline for the single sandbox environment. The network, private RDS PostgreSQL data, ECR/ECS platform, edge foundations, and both initial digest-pinned ECS services are applied. Frontend and backend services have been successfully deployed through the controlled ECS deployment workflow, and their public HTTPS smoke tests pass.
 
 ## Service health and observability
 
@@ -15,6 +15,17 @@ This document records the operational baseline for the single sandbox environmen
 - `Bootstrap ECS Service` is initial-creation-only. For a later component release, use `Deploy ECS Service` with the matching image-publication `digest`, `source_commit`, and `deploy-<component>` confirmation. It verifies ECR provenance, records the currently healthy task definition as known-good, registers a new digest-pinned revision, updates only that service, waits for ECS stability and a healthy ALB target, then calls the component public HTTPS health URL. It automatically restores the captured predecessor if its post-update verification fails.
 - For an intentional component rollback, use `Roll Back ECS Service` with `rollback-<component>`. It selects only the immediately preceding task-definition revision that is tagged `HappyPostDeploymentStatus=known-good`; it fails safely if there is no such predecessor.
 - Notifications are intentionally outside the current baseline. Failed workflows and CloudWatch alarms remain visible in their respective consoles until a notification integration is separately approved.
+
+## Current deployed verification
+
+The latest controlled ECS deployment verification passed:
+
+| Component | Smoke-test routes | Version response |
+| --- | --- | --- |
+| Backend | `/backend/healthz`, `/backend/version` | Deployed immutable image digest |
+| Frontend | `/healthz`, `/version` | Application version `0.1.0` |
+
+The rollback workflow is available for component-scoped recovery. Rehearse rollback only if time permits before assessment submission; otherwise keep it as a documented follow-up because the deployment and public smoke path is already validated.
 
 ## Database operations
 
