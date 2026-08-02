@@ -33,6 +33,8 @@ COPY --from=production-dependencies --chown=65532:65532 /app/node_modules ./node
 COPY --from=build --chown=65532:65532 /app/package.json ./package.json
 COPY --from=build --chown=65532:65532 /app/.next ./.next
 
+USER 65532
+
 EXPOSE 3000
 
 CMD ["./node_modules/next/dist/bin/next", "start"]
