@@ -10,7 +10,7 @@
 | ECS delivery | One cluster hosts two Fargate services behind an ALB | [Architecture](architecture.md) |
 | Public domain and TLS | Cloudflare delegates the application subdomain to Route 53; HTTPS ends at ALB | [Architecture](architecture.md) |
 | Persistent application data | Private Aurora PostgreSQL Serverless is reachable only from the backend service | [Architecture](architecture.md), [Security decisions](security-decisions.md) |
-| Database recovery | Aurora automated backups and point-in-time recovery target seven days of recovery points; first apply verifies Free Plan acceptance | [Operations](operations.md) |
+| Database recovery | Aurora automated backups and point-in-time recovery are configured for one day in sandbox, the approved Free Plan validation candidate replacing the seven-day target; a future paid environment restores the longer objective | [Operations](operations.md) |
 | Infrastructure as code | Terraform manages foundation and steady-state resources after bootstrap | [Architecture](architecture.md) |
 | Controlled deployment | One GitHub environment, `sandbox`, provides deployment role and configuration separation without required reviewers | [Security decisions](security-decisions.md) |
 | Rollback | Immutable image digests and ECS revision rollback are required | [Deployment and rollback](deployment-and-rollback.md) |
