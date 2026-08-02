@@ -11,15 +11,72 @@ permissions:
 
 env:
   TF_IN_AUTOMATION: "true"
-  NETWORK_WORKING_DIRECTORY: infra/terraform/foundations/network
 
 jobs:
-  validate-network:
-    name: Validate network foundation
+  detect-roots:
+    name: Detect affected Terraform roots
     runs-on: ubuntu-latest
+    outputs:
+      roots: ${{ steps.detect.outputs.roots }}
     steps:
       - name: Check out pull request commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Select implemented affected roots
+        id: detect
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          roots=(
+            infra/terraform/foundations/network
+            infra/terraform/foundations/security-identity
+            infra/terraform/foundations/platform
+            infra/terraform/foundations/edge
+            infra/terraform/stacks/data
+            infra/terraform/stacks/backend-service
+            infra/terraform/stacks/frontend-service
+            infra/terraform/stacks/observability
+          )
+
+          changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          validate_all=false
+          if grep -Eq '^(\.github/workflows/terraform-.*\.yml|infra/terraform/modules/)' <<< "$changed_files"; then
+            validate_all=true
+          fi
+
+          selected_roots=()
+          for root in "${roots[@]}"; do
+            if [[ -d "$root" ]] && { [[ "$validate_all" == true ]] || grep -Fq "${root}/" <<< "$changed_files"; }; then
+              selected_roots+=("$root")
+            fi
+          done
+
+          if (( ${#selected_roots[@]} == 0 )); then
+            roots_json='[]'
+          else
+            roots_json="$(printf '%s\n' "${selected_roots[@]}" | jq -R . | jq -sc .)"
+          fi
+          echo "roots=$roots_json" >> "$GITHUB_OUTPUT"
+          echo "Selected Terraform roots: $roots_json"
+
+  validate-roots:
+    name: Validate ${{ matrix.working_directory }}
+    needs: detect-roots
+    if: needs.detect-roots.outputs.roots != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        working_directory: ${{ fromJSON(needs.detect-roots.outputs.roots) }}
+    steps:
+      - name: Check out pull request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -30,13 +87,13 @@ jobs:
         uses: terraform-linters/setup-tflint@v4
 
       - name: Initialise without remote backend
-        run: terraform -chdir="$NETWORK_WORKING_DIRECTORY" init -backend=false -input=false
+        run: terraform -chdir="${{ matrix.working_directory }}" init -backend=false -input=false
 
       - name: Check Terraform formatting
-        run: terraform fmt -check -recursive infra/terraform
+        run: terraform fmt -check -recursive "${{ matrix.working_directory }}"
 
-      - name: Validate network foundation
-        run: terraform -chdir="$NETWORK_WORKING_DIRECTORY" validate
+      - name: Validate Terraform root
+        run: terraform -chdir="${{ matrix.working_directory }}" validate
 
-      - name: Lint network foundation
-        run: tflint --chdir="$NETWORK_WORKING_DIRECTORY"
+      - name: Lint Terraform root
+        run: tflint --chdir="${{ matrix.working_directory }}"
