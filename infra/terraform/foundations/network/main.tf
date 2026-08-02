@@ -169,8 +169,6 @@ resource "aws_security_group" "alb" {
   name        = "${local.name_prefix}-alb"
   description = "HTTPS ingress for the Happy Post public application load balancer."
   vpc_id      = aws_vpc.this.id
-  ingress     = []
-  egress      = []
 
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-alb"
@@ -181,8 +179,6 @@ resource "aws_security_group" "frontend" {
   name        = "${local.name_prefix}-frontend"
   description = "ALB-only ingress and HTTPS egress for the frontend service."
   vpc_id      = aws_vpc.this.id
-  ingress     = []
-  egress      = []
 
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-frontend"
@@ -193,8 +189,6 @@ resource "aws_security_group" "backend" {
   name        = "${local.name_prefix}-backend"
   description = "ALB-only ingress with database and HTTPS egress for the backend service."
   vpc_id      = aws_vpc.this.id
-  ingress     = []
-  egress      = []
 
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-backend"
@@ -290,13 +284,4 @@ resource "aws_vpc_security_group_egress_rule" "backend_https" {
   from_port         = 443
   to_port           = 443
   ip_protocol       = "tcp"
-}
-
-resource "aws_vpc_security_group_ingress_rule" "database_from_backend" {
-  security_group_id            = aws_security_group.database.id
-  description                  = "PostgreSQL from backend service"
-  referenced_security_group_id = aws_security_group.backend.id
-  from_port                    = 5432
-  to_port                      = 5432
-  ip_protocol                  = "tcp"
 }

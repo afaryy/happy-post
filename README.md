@@ -4,7 +4,7 @@ Happy Post is a cloud-native application with a Next.js frontend and FastAPI bac
 
 ## Current status
 
-The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network foundation and remote-state configuration are implemented and locally validated, but have not been applied. Terraform and application test workflows are implemented; the remaining Terraform stacks, AWS workload resources, database integration, security scanning, image publication, and deployment remain outstanding.
+The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network foundation and remote-state configuration are implemented and have been partially applied; the network root must be reconciled through its workflow before later stacks are applied. Terraform, application, and security test workflows are implemented; the remaining Terraform stacks, AWS workload resources, database integration, image publication, and deployment remain outstanding.
 
 - [Backend MVP](backend/README.md): posts API, operational endpoints, PostgreSQL-ready schema and migration, tests, linting, and local configuration example.
 - [Frontend MVP](frontend/README.md): post board, backend API integration, operational endpoints, tests, linting, and local configuration example.

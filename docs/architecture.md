@@ -45,7 +45,7 @@ The hosted-zone ID is non-sensitive configuration. Terraform manages ACM DNS-val
 
 ## Network Egress
 
-Sandbox uses one NAT Gateway in a public subnet as an explicit cost/availability trade-off. Private application subnets use it for outbound ECR, CloudWatch Logs, and approved external dependency access. The Internet Gateway supports the public ALB and NAT Gateway only. RDS has no public route. VPC endpoints remain disabled.
+Sandbox uses one NAT Gateway in a public subnet as an explicit cost/availability trade-off. Private application subnets use it for outbound ECR, CloudWatch Logs, and approved external-dependency access. The Internet Gateway supports the public ALB and NAT Gateway only. RDS has no public route. VPC endpoints remain disabled.
 
 ## Routing
 
@@ -89,7 +89,7 @@ Terraform owns foundations and stable configuration: networking, private RDS Pos
 
 CloudFormation bootstrap owns the S3 state bucket, DynamoDB lock table, runtime permissions boundary, and GitHub OIDC roles. Terraform uses the S3 backend with DynamoDB as the only locking mechanism. The version-controlled bootstrap source is [`infra/bootstrap/happy-post-terraform-bootstrap.yaml`](../infra/bootstrap/happy-post-terraform-bootstrap.yaml). The state bucket is retained; the lock table has deletion protection and is retained on bootstrap stack deletion or replacement.
 
-The version-controlled [`foundations/network`](../infra/terraform/foundations/network) root declares the two-AZ VPC, public/application/database subnet tiers, one NAT Gateway, route tables, and ALB/frontend/backend/database security-group boundaries. It uses its own `sandbox/foundations/network/terraform.tfstate` object and is locally validated but not yet applied.
+The version-controlled [`foundations/network`](../infra/terraform/foundations/network) root declares the two-AZ VPC, public/application/database subnet tiers, one NAT Gateway, route tables, and ALB/frontend/backend/database security-group boundaries. It uses its own `sandbox/foundations/network/terraform.tfstate` object. The root is partially applied and must be reconciled by its workflow before later stacks are applied.
 
 ## Bootstrap Inputs
 
