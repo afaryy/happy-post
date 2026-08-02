@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS builder
+FROM python:3.12-alpine@sha256:6d43704baacd1bfbe7c295d7f13079d5d8104ed33568873133f8fc69980419df AS builder
 
 ENV VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH" \
@@ -12,18 +12,18 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-FROM python:3.12-slim AS runtime
+FROM python:3.12-alpine@sha256:6d43704baacd1bfbe7c295d7f13079d5d8104ed33568873133f8fc69980419df AS runtime
 
 ENV VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
 
-RUN groupadd --system app \
-    && useradd --system --gid app --create-home app
-
 WORKDIR /app
 
-COPY --from=builder /opt/venv /opt/venv
-COPY app ./app
+RUN addgroup --system app \
+    && adduser --system --ingroup app app
+
+COPY --from=builder --chown=app:app /opt/venv /opt/venv
+COPY --chown=app:app app ./app
 
 USER app
 

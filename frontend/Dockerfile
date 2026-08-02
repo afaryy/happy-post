@@ -1,4 +1,6 @@
-FROM node:20-alpine AS dependencies
+FROM cgr.dev/chainguard/node:latest-dev@sha256:d543de1e29036a65ab270e2069672aa29fae3999e089bc491a9f9094ad2d6ac2 AS dependencies
+
+USER root
 
 WORKDIR /app
 
@@ -14,27 +16,23 @@ ENV BACKEND_BASE_URL=${BACKEND_BASE_URL}
 
 RUN npm run build
 
-FROM node:20-alpine AS production-dependencies
+FROM dependencies AS production-dependencies
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-FROM node:20-alpine AS runtime
+FROM cgr.dev/chainguard/node:latest@sha256:7740ce8ef7cce4b0892e85813cbb39abe48c56bd48290cb18b9ea721480263f3 AS runtime
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN addgroup --system nextjs && adduser --system --ingroup nextjs nextjs
-
-COPY --from=production-dependencies --chown=nextjs:nextjs /app/node_modules ./node_modules
-COPY --from=build --chown=nextjs:nextjs /app/package.json ./package.json
-COPY --from=build --chown=nextjs:nextjs /app/.next ./.next
-
-USER nextjs
+COPY --from=production-dependencies --chown=65532:65532 /app/node_modules ./node_modules
+COPY --from=build --chown=65532:65532 /app/package.json ./package.json
+COPY --from=build --chown=65532:65532 /app/.next ./.next
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start"]
+CMD ["./node_modules/next/dist/bin/next", "start"]
