@@ -10,4 +10,4 @@ Security groups enforce this path: Internet to ALB on HTTPS 443; ALB to frontend
 
 Route 53, ACM, ECR, Secrets Manager, and CloudWatch are regional managed services outside the VPC. API Gateway, CloudFront, VPC endpoints, and end-to-end TLS are not current-baseline components.
 
-The unapplied Terraform implementation is in [`infra/terraform/foundations/network`](../infra/terraform/foundations/network). It configures the approved remote state key, enforces the documented route boundaries, and uses separate security-group rule resources to avoid cyclic dependencies between the ALB and service security groups.
+The applied network Terraform root is [`infra/terraform/foundations/network`](../infra/terraform/foundations/network). It configures the approved remote state key, enforces the documented route boundaries, and uses separate security-group rule resources to avoid cyclic dependencies between the ALB and service security groups. The separate [`stacks/data`](../infra/terraform/stacks/data) root consumes only the private database subnet IDs and database security-group ID from that network state.
