@@ -1,0 +1,3 @@
+# Supply a real scanned ECR digest only when an authorised apply is scheduled.
+# This syntactically valid value is intentionally non-deployable and is for plan validation only.
+backend_image_digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"

@@ -82,10 +82,11 @@ resource "aws_db_instance" "this" {
 resource "aws_secretsmanager_secret_version" "database_credentials" {
   secret_id = aws_secretsmanager_secret.database_credentials.id
   secret_string = jsonencode({
-    dbname   = var.db_name
-    host     = aws_db_instance.this.address
-    password = random_password.database.result
-    port     = aws_db_instance.this.port
-    username = var.master_username
+    database_url = "postgresql+psycopg://${urlencode(var.master_username)}:${urlencode(random_password.database.result)}@${aws_db_instance.this.address}:${aws_db_instance.this.port}/${urlencode(var.db_name)}"
+    dbname       = var.db_name
+    host         = aws_db_instance.this.address
+    password     = random_password.database.result
+    port         = aws_db_instance.this.port
+    username     = var.master_username
   })
 }
