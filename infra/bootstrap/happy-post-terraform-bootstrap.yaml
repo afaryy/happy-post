@@ -1,0 +1,721 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Happy Post sandbox bootstrap for the DevOps technical assessment. Final reviewed baseline. Creates the Terraform S3 backend and
+  GitHub Actions roles while reusing an existing account-level GitHub OIDC provider.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: happy-post
+    AllowedPattern: "[a-z0-9-]+"
+  EnvironmentName:
+    Type: String
+    Default: sandbox
+    AllowedPattern: "[a-z0-9-]+"
+  BackendBucketName:
+    Type: String
+    Description: Globally unique private S3 bucket name for Terraform state.
+    MinLength: 3
+  StateKeyPrefix:
+    Type: String
+    Default: sandbox
+    Description: Prefix containing all Happy Post Terraform state objects.
+  Route53HostedZoneId:
+    Type: String
+    Default: Z07821441TT04VLUXZXPO
+    Description: Existing delegated happy-post.asksafe.ai Route 53 public hosted-zone ID.
+  ExistingGitHubOidcProviderArn:
+    Type: String
+    Description: >
+      Existing ARN for token.actions.githubusercontent.com. This template does
+      not create or modify the OIDC provider.
+    AllowedPattern: "arn:[^:]+:iam::[0-9]{12}:oidc-provider/token\\.actions\\.githubusercontent\\.com"
+  GitHubRepositorySubject:
+    Type: String
+    Description: >
+      Repository portion used in the GitHub OIDC sub claim. Use owner/repository,
+      or owner@OWNER_ID/repository-name@REPOSITORY_ID when immutable subject claims apply.
+  MainBranch:
+    Type: String
+    Default: main
+  GitHubEnvironmentName:
+    Type: String
+    Default: sandbox
+    Description: >
+      The single GitHub environment allowed to assume the Terraform apply/destroy
+      and ECS deployment roles. It is an OIDC/configuration boundary only; reviewer
+      and approval protection is reserved for a future production environment.
+
+Resources:
+  TerraformStateBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref BackendBucketName
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+  TerraformStateBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref TerraformStateBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt TerraformStateBucket.Arn
+              - !Sub "${TerraformStateBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  TerraformLockTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub "${ProjectName}-${EnvironmentName}-terraform-lock"
+      BillingMode: PAY_PER_REQUEST
+      DeletionProtectionEnabled: true
+      AttributeDefinitions:
+        - AttributeName: LockID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: LockID
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: ManagedBy
+          Value: CloudFormation
+
+
+  HappyPostPermissionsBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ProjectName}-${EnvironmentName}-permissions-boundary"
+      Description: Permissions boundary for Terraform-managed Happy Post runtime roles.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowEcrAuthorization
+            Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+            Resource: "*"
+          - Sid: AllowHappyPostImagePulls
+            Effect: Allow
+            Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:BatchGetImage
+              - ecr:GetDownloadUrlForLayer
+            Resource:
+              - !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-${EnvironmentName}-frontend"
+              - !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-${EnvironmentName}-backend"
+          - Sid: AllowHappyPostLogPublishing
+            Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ecs/happy-post/frontend:*"
+              - !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ecs/happy-post/backend:*"
+          - Sid: AllowDatabaseSecretInjection
+            Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-${EnvironmentName}-database-*"
+          - Sid: DenyPrivilegeEscalation
+            Effect: Deny
+            Action:
+              - iam:*
+              - organizations:*
+              - account:*
+            Resource: "*"
+
+  TerraformPlanRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${EnvironmentName}-terraform-plan"
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: SameRepositoryPullRequestTrust
+            Effect: Allow
+            Principal:
+              Federated: !Ref ExistingGitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepositorySubject}:pull_request"
+      Policies:
+        - PolicyName: TerraformStateReadAndLock
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ListStatePrefix
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt TerraformStateBucket.Arn
+                Condition:
+                  StringLike:
+                    s3:prefix:
+                      - !Sub "${StateKeyPrefix}/*"
+              - Sid: ReadStateObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub "${TerraformStateBucket.Arn}/${StateKeyPrefix}/*"
+              - Sid: ManageDynamoDbLock
+                Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                Resource: !GetAtt TerraformLockTable.Arn
+        - PolicyName: HappyPostReadOnlyDiscovery
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadHappyPostServices
+                Effect: Allow
+                Action:
+                  - acm:DescribeCertificate
+                  - acm:ListCertificates
+                  - acm:ListTagsForCertificate
+                  - application-autoscaling:Describe*
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:GetMetricData
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:ListDashboards
+                  - cloudwatch:ListMetrics
+                  - cloudwatch:ListTagsForResource
+                  - ec2:Describe*
+                  - ecr:DescribeImages
+                  - ecr:DescribeRepositories
+                  - ecr:GetLifecyclePolicy
+                  - ecr:GetRepositoryPolicy
+                  - ecr:ListTagsForResource
+                  - ecs:Describe*
+                  - ecs:List*
+                  - elasticloadbalancing:Describe*
+                  - events:DescribeRule
+                  - events:ListRules
+                  - events:ListTagsForResource
+                  - events:ListTargetsByRule
+                  - iam:Get*
+                  - iam:List*
+                  - kms:DescribeKey
+                  - kms:GetKeyPolicy
+                  - kms:ListAliases
+                  - kms:ListResourceTags
+                  - logs:Describe*
+                  - logs:ListTagsForResource
+                  - rds:Describe*
+                  - rds:ListTagsForResource
+                  - route53:Get*
+                  - route53:List*
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:GetResourcePolicy
+                  - secretsmanager:ListSecrets
+                  - secretsmanager:ListSecretVersionIds
+                  - secretsmanager:ListTagsForResource
+                  - sns:GetTopicAttributes
+                  - sns:List*
+                  - sts:GetCallerIdentity
+                  - wafv2:Get*
+                  - wafv2:List*
+                Resource: "*"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Purpose
+          Value: TerraformPlan
+
+  TerraformApplyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${EnvironmentName}-terraform-apply"
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ProtectedTerraformEnvironmentTrust
+            Effect: Allow
+            Principal:
+              Federated: !Ref ExistingGitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepositorySubject}:environment:${GitHubEnvironmentName}"
+      Policies:
+        - PolicyName: TerraformStateWriteAndLock
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ListStatePrefix
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt TerraformStateBucket.Arn
+                Condition:
+                  StringLike:
+                    s3:prefix:
+                      - !Sub "${StateKeyPrefix}/*"
+              - Sid: ReadWriteStateObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${TerraformStateBucket.Arn}/${StateKeyPrefix}/*"
+              - Sid: ManageDynamoDbLock
+                Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                Resource: !GetAtt TerraformLockTable.Arn
+        - PolicyName: HappyPostInfrastructureProvisioning
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ProvisionApprovedServiceFamilies
+                Effect: Allow
+                Action:
+                  - acm:AddTagsToCertificate
+                  - acm:DeleteCertificate
+                  - acm:DescribeCertificate
+                  - acm:ListCertificates
+                  - acm:ListTagsForCertificate
+                  - acm:RequestCertificate
+                  - application-autoscaling:DeleteScalingPolicy
+                  - application-autoscaling:DeregisterScalableTarget
+                  - application-autoscaling:DescribeScalableTargets
+                  - application-autoscaling:DescribeScalingPolicies
+                  - application-autoscaling:PutScalingPolicy
+                  - application-autoscaling:RegisterScalableTarget
+                  - cloudwatch:DeleteAlarms
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - ec2:AllocateAddress
+                  - ec2:AssociateAddress
+                  - ec2:AssociateRouteTable
+                  - ec2:AttachInternetGateway
+                  - ec2:AuthorizeSecurityGroupEgress
+                  - ec2:AuthorizeSecurityGroupIngress
+                  - ec2:CreateInternetGateway
+                  - ec2:CreateNatGateway
+                  - ec2:CreateRoute
+                  - ec2:CreateRouteTable
+                  - ec2:CreateSecurityGroup
+                  - ec2:CreateSubnet
+                  - ec2:CreateTags
+                  - ec2:CreateVpc
+                  - ec2:DeleteInternetGateway
+                  - ec2:DeleteNatGateway
+                  - ec2:DeleteRoute
+                  - ec2:DeleteRouteTable
+                  - ec2:DeleteSecurityGroup
+                  - ec2:DeleteSubnet
+                  - ec2:DeleteVpc
+                  - ec2:Describe*
+                  - ec2:DetachInternetGateway
+                  - ec2:DisassociateAddress
+                  - ec2:DisassociateRouteTable
+                  - ec2:ModifySubnetAttribute
+                  - ec2:ModifyVpcAttribute
+                  - ec2:ReleaseAddress
+                  - ec2:RevokeSecurityGroupEgress
+                  - ec2:RevokeSecurityGroupIngress
+                  - ecr:CreateRepository
+                  - ecr:DeleteLifecyclePolicy
+                  - ecr:DeleteRepository
+                  - ecr:DescribeRepositories
+                  - ecr:GetLifecyclePolicy
+                  - ecr:GetRepositoryPolicy
+                  - ecr:ListTagsForResource
+                  - ecr:PutImageScanningConfiguration
+                  - ecr:PutImageTagMutability
+                  - ecr:PutLifecyclePolicy
+                  - ecr:SetRepositoryPolicy
+                  - ecr:TagResource
+                  - ecr:UntagResource
+                  - ecs:CreateCluster
+                  - ecs:CreateService
+                  - ecs:DeleteCluster
+                  - ecs:DeleteService
+                  - ecs:DeregisterTaskDefinition
+                  - ecs:Describe*
+                  - ecs:List*
+                  - ecs:RegisterTaskDefinition
+                  - ecs:TagResource
+                  - ecs:UpdateService
+                  - elasticloadbalancing:AddTags
+                  - elasticloadbalancing:CreateListener
+                  - elasticloadbalancing:CreateLoadBalancer
+                  - elasticloadbalancing:CreateRule
+                  - elasticloadbalancing:CreateTargetGroup
+                  - elasticloadbalancing:DeleteListener
+                  - elasticloadbalancing:DeleteLoadBalancer
+                  - elasticloadbalancing:DeleteRule
+                  - elasticloadbalancing:DeleteTargetGroup
+                  - elasticloadbalancing:Describe*
+                  - elasticloadbalancing:ModifyListener
+                  - elasticloadbalancing:ModifyRule
+                  - elasticloadbalancing:ModifyTargetGroup
+                  - elasticloadbalancing:ModifyTargetGroupAttributes
+                  - elasticloadbalancing:SetSecurityGroups
+                  - elasticloadbalancing:SetSubnets
+                  - logs:CreateLogGroup
+                  - logs:DeleteLogGroup
+                  - logs:DescribeLogGroups
+                  - logs:ListTagsForResource
+                  - logs:PutRetentionPolicy
+                  - logs:TagResource
+                  - rds:AddTagsToResource
+                  - rds:CreateDBInstance
+                  - rds:CreateDBSubnetGroup
+                  - rds:CreateDBParameterGroup
+                  - rds:DeleteDBInstance
+                  - rds:DeleteDBSubnetGroup
+                  - rds:DeleteDBParameterGroup
+                  - rds:Describe*
+                  - rds:ModifyDBInstance
+                  - rds:ModifyDBParameterGroup
+                  - rds:ModifyDBSubnetGroup
+                  - rds:RemoveTagsFromResource
+                  - rds:RestoreDBInstanceToPointInTime
+                  - route53:GetHostedZone
+                  - route53:ListResourceRecordSets
+                  - secretsmanager:CreateSecret
+                  - secretsmanager:DeleteSecret
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:GetResourcePolicy
+                  - secretsmanager:PutResourcePolicy
+                  - secretsmanager:TagResource
+                  - secretsmanager:UpdateSecret
+                  - sts:GetCallerIdentity
+                Resource: "*"
+              - Sid: ChangeOnlyDelegatedRoute53Zone
+                Effect: Allow
+                Action:
+                  - route53:ChangeResourceRecordSets
+                Resource: !Sub "arn:${AWS::Partition}:route53:::hostedzone/${Route53HostedZoneId}"
+              - Sid: DenyApplicationImagePublication
+                Effect: Deny
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:CompleteLayerUpload
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource: "*"
+        - PolicyName: HappyPostRestrictedIamManagement
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadIamMetadata
+                Effect: Allow
+                Action:
+                  - iam:GetPolicy
+                  - iam:GetPolicyVersion
+                  - iam:GetRole
+                  - iam:ListAttachedRolePolicies
+                  - iam:ListInstanceProfilesForRole
+                  - iam:ListPolicies
+                  - iam:ListPolicyTags
+                  - iam:ListPolicyVersions
+                  - iam:ListRolePolicies
+                  - iam:ListRoleTags
+                Resource: "*"
+              - Sid: CreateHappyPostRolesWithBoundary
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-*"
+                Condition:
+                  StringEquals:
+                    iam:PermissionsBoundary: !Ref HappyPostPermissionsBoundary
+              - Sid: ManageHappyPostRoles
+                Effect: Allow
+                Action:
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:UpdateRole
+                  - iam:UpdateRoleDescription
+                  - iam:PutRolePermissionsBoundary
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-*"
+                Condition:
+                  StringEqualsIfExists:
+                    iam:PermissionsBoundary: !Ref HappyPostPermissionsBoundary
+              - Sid: AttachApprovedManagedPolicies
+                Effect: Allow
+                Action:
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-*"
+                Condition:
+                  ArnEquals:
+                    iam:PolicyARN:
+                      - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+                      - !Ref HappyPostPermissionsBoundary
+              - Sid: ManageHappyPostPolicies
+                Effect: Allow
+                Action:
+                  - iam:CreatePolicy
+                  - iam:CreatePolicyVersion
+                  - iam:DeletePolicy
+                  - iam:DeletePolicyVersion
+                  - iam:SetDefaultPolicyVersion
+                  - iam:TagPolicy
+                  - iam:UntagPolicy
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/${ProjectName}-${EnvironmentName}-runtime-*"
+              - Sid: PassHappyPostRoles
+                Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-*"
+                Condition:
+                  StringEquals:
+                    iam:PassedToService:
+                      - ecs-tasks.amazonaws.com
+                      - ecs.application-autoscaling.amazonaws.com
+                      - events.amazonaws.com
+              - Sid: CreateApprovedServiceLinkedRoles
+                Effect: Allow
+                Action:
+                  - iam:CreateServiceLinkedRole
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    iam:AWSServiceName:
+                      - ecs.amazonaws.com
+                      - elasticloadbalancing.amazonaws.com
+                      - rds.amazonaws.com
+                      - ecs.application-autoscaling.amazonaws.com
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Purpose
+          Value: TerraformApply
+
+  EcrPublishRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${EnvironmentName}-ecr-publish"
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: MainBranchImagePublishTrust
+            Effect: Allow
+            Principal:
+              Federated: !Ref ExistingGitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepositorySubject}:ref:refs/heads/${MainBranch}"
+      Policies:
+        - PolicyName: PushHappyPostImages
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: AuthenticateToEcr
+                Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: "*"
+              - Sid: PushOnlyHappyPostRepositories
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:CompleteLayerUpload
+                  - ecr:DescribeImages
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-${EnvironmentName}-frontend"
+                  - !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-${EnvironmentName}-backend"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Purpose
+          Value: EcrPublish
+
+  EcsDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${EnvironmentName}-ecs-deploy"
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ProtectedDeploymentEnvironmentTrust
+            Effect: Allow
+            Principal:
+              Federated: !Ref ExistingGitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubRepositorySubject}:environment:${GitHubEnvironmentName}"
+      Policies:
+        - PolicyName: DeployHappyPostServices
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: RegisterTaskDefinitions
+                Effect: Allow
+                Action:
+                  - ecs:RegisterTaskDefinition
+                  - ecs:TagResource
+                  - ecs:ListTaskDefinitionFamilies
+                  - ecs:ListTaskDefinitions
+                Resource: "*"
+              - Sid: ReadTaskDefinitions
+                Effect: Allow
+                Action:
+                  - ecs:DescribeTaskDefinition
+                  - ecs:ListTagsForResource
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/${ProjectName}-${EnvironmentName}-*:*"
+              - Sid: UpdateHappyPostServices
+                Effect: Allow
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:UpdateService
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/${ProjectName}-${EnvironmentName}/${ProjectName}-${EnvironmentName}-frontend"
+                  - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/${ProjectName}-${EnvironmentName}/${ProjectName}-${EnvironmentName}-backend"
+              - Sid: ReadClusterAndTasks
+                Effect: Allow
+                Action:
+                  - ecs:DescribeClusters
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                Resource: "*"
+              - Sid: ReadTargetHealth
+                Effect: Allow
+                Action:
+                  - elasticloadbalancing:DescribeTargetGroups
+                  - elasticloadbalancing:DescribeTargetHealth
+                Resource: "*"
+              - Sid: ReadImageMetadata
+                Effect: Allow
+                Action:
+                  - ecr:BatchGetImage
+                  - ecr:DescribeImages
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-${EnvironmentName}-frontend"
+                  - !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-${EnvironmentName}-backend"
+              - Sid: ReadDeploymentDiagnostics
+                Effect: Allow
+                Action:
+                  - cloudwatch:DescribeAlarms
+                  - logs:DescribeLogStreams
+                  - logs:GetLogEvents
+                Resource: "*"
+              - Sid: ReadHappyPostTaskRoles
+                Effect: Allow
+                Action:
+                  - iam:GetRole
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-frontend-execution-role"
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-backend-execution-role"
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-frontend-task-role"
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-backend-task-role"
+              - Sid: PassOnlyHappyPostTaskRoles
+                Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-frontend-execution-role"
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-backend-execution-role"
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-frontend-task-role"
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${ProjectName}-${EnvironmentName}-backend-task-role"
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: ecs-tasks.amazonaws.com
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Purpose
+          Value: EcsDeploy
+
+Outputs:
+  HappyPostPermissionsBoundaryArn:
+    Description: Permissions boundary ARN required on Terraform-managed Happy Post runtime roles.
+    Value: !Ref HappyPostPermissionsBoundary
+  TerraformStateBucketName:
+    Description: S3 bucket used by all Happy Post Terraform root modules.
+    Value: !Ref TerraformStateBucket
+  TerraformLockTableName:
+    Description: DynamoDB table used by all Happy Post Terraform root modules for state locking.
+    Value: !Ref TerraformLockTable
+  TerraformLockTableArn:
+    Description: DynamoDB lock-table ARN used by Terraform plan and apply roles.
+    Value: !GetAtt TerraformLockTable.Arn
+  TerraformPlanRoleArn:
+    Description: GitHub Actions role for same-repository pull-request Terraform plans.
+    Value: !GetAtt TerraformPlanRole.Arn
+  TerraformApplyRoleArn:
+    Description: Protected-environment role for approved Terraform applies.
+    Value: !GetAtt TerraformApplyRole.Arn
+  EcrPublishRoleArn:
+    Description: Main-branch role for publishing the two Happy Post images.
+    Value: !GetAtt EcrPublishRole.Arn
+  EcsDeployRoleArn:
+    Description: Protected-environment role for deploying the two Happy Post ECS services.
+    Value: !GetAtt EcsDeployRole.Arn
