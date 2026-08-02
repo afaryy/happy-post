@@ -1,0 +1,42 @@
+name: Terraform Test
+
+on:
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/terraform-*.yml"
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: "true"
+  NETWORK_WORKING_DIRECTORY: infra/terraform/foundations/network
+
+jobs:
+  validate-network:
+    name: Validate network foundation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request commit
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Set up TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Initialise without remote backend
+        run: terraform -chdir="$NETWORK_WORKING_DIRECTORY" init -backend=false -input=false
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive infra/terraform
+
+      - name: Validate network foundation
+        run: terraform -chdir="$NETWORK_WORKING_DIRECTORY" validate
+
+      - name: Lint network foundation
+        run: tflint --chdir="$NETWORK_WORKING_DIRECTORY"

@@ -10,7 +10,7 @@ This document records the operational baseline for the single sandbox environmen
 - The ALB publishes the component-specific public health routes defined in [Architecture](architecture.md).
 - ECS task logs go to component-specific CloudWatch log groups.
 - Deployment verifies ECS service stability and the relevant public health route before it succeeds.
-- Notifications are intentionally outside the assessment baseline. Failed workflows and CloudWatch alarms remain visible in their respective consoles until a notification integration is separately approved.
+- Notifications are intentionally outside the current baseline. Failed workflows and CloudWatch alarms remain visible in their respective consoles until a notification integration is separately approved.
 
 ## Database operations
 
@@ -20,7 +20,7 @@ This document records the operational baseline for the single sandbox environmen
 - RDS is a Single-AZ db.t4g.micro instance with encrypted gp3 storage: 20 GiB allocated and 40 GiB maximum autoscaled storage. It uses the AWS-managed RDS KMS key; customer-managed KMS is deferred.
 - RDS automated backups and point-in-time recovery retain seven days. Preferred backup window is 15:30-16:00 UTC daily; preferred maintenance window is sun:16:30-sun:17:00 UTC.
 - Deletion protection is disabled for sandbox. Intentional destroy creates a uniquely named final snapshot, does not retain automated backups, and requires the snapshot owner to review and delete it within seven days unless retention is explicitly approved.
-- Restore testing is required before assessment submission and after every database-changing migration. Restore to an isolated temporary private instance, verify availability, approved private connectivity, SELECT 1, migration version, and row-count sanity check, record evidence, then remove the temporary instance.
+- Restore testing is required before a release and after every database-changing migration. Restore to an isolated temporary private instance, verify availability, approved private connectivity, SELECT 1, migration version, and row-count sanity check, record evidence, then remove the temporary instance.
 - A database change requires a backward-compatible migration plan and either a restore plan or a compensating migration before deployment.
 
 ## Terraform state-backend operations

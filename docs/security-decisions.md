@@ -6,6 +6,8 @@ GitHub Actions authenticates to AWS with GitHub OIDC and temporary STS credentia
 
 One GitHub environment does not mean one AWS role. Separate IAM roles preserve operational boundaries for Terraform planning, Terraform apply/destroy, image publishing, and ECS deployment. The plan role is restricted to the approved repository's `pull_request` claim; Terraform apply/destroy and ECS deployment roles are restricted to its `environment:sandbox` claim; the ECR publish role is restricted to its `ref:refs/heads/main` claim.
 
+The initial Terraform controls use `happy-post-sandbox-terraform-plan` only in same-repository pull-request jobs. The plan job is fail-closed until the non-sensitive repository variable `ENABLE_TERRAFORM_PR_PLAN` is explicitly set to `true` after this workflow release is merged. Backend-free validation is the only Terraform work available to forks. Apply and destroy use `happy-post-sandbox-terraform-apply` only from `environment:sandbox`, resolve and log the immutable `origin/main` SHA at dispatch, and create a fresh plan in the same job that applies it. Their `target` input is an allow-list of canonical Terraform roots, mapped to fixed directories rather than accepting a user-supplied path. A target missing from the resolved commit fails before credentials are configured. The workflow source contains role ARNs, which are non-secret account configuration; it contains no AWS access keys or secret values.
+
 ## Terraform state-backend protection
 
 CloudFormation owns the private versioned S3 state bucket and the DynamoDB lock table. The lock table is encrypted, deletion-protected, and retained on bootstrap stack deletion or replacement. This prevents an accidental bootstrap teardown from silently removing Terraform's concurrency lock. A deliberate teardown requires documented approval, safe removal of dependent state, disabling DynamoDB deletion protection, and an explicit delete of the retained table.
@@ -32,7 +34,7 @@ No secret values belong in source control, documentation, GitHub variables, or c
 
 ## Image and security governance
 
-Images are versioned by immutable digest, stored in private ECR repositories, and scanned before deployment. Assessment-baseline deployment image selection must use approved, maintained base images and satisfy the scanner gates below. Fargate is serverless container compute, so Happy Post manages no EC2 AMIs; AWS manages the underlying host and platform images. CloudWatch log access is scoped to the specific Happy Post log groups. Cloudflare controls parent DNS for `asksafe.ai`; Route 53 controls only the delegated `happy-post.asksafe.ai` zone.
+Images are versioned by immutable digest, stored in private ECR repositories, and scanned before deployment. Baseline deployment image selection must use approved, maintained base images and satisfy the scanner gates below. Fargate is serverless container compute, so Happy Post manages no EC2 AMIs; AWS manages the underlying host and platform images. CloudWatch log access is scoped to the specific Happy Post log groups. Cloudflare controls parent DNS for `asksafe.ai`; Route 53 controls only the delegated `happy-post.asksafe.ai` zone.
 
 ### Scanner gates and exceptions
 

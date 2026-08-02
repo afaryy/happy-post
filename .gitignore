@@ -1,4 +1,4 @@
-# Private assessment source material
+# Private design source material
 _private/
 
 # Node.js
@@ -58,7 +58,7 @@ secrets/
 # Editable Draw.io sources are owner-managed in Google Drive; commit SVG exports only
 docs/diagrams/*.drawio
 
-# Local agent planning artifacts; retain locally but exclude from assessment deliverables
+# Local agent planning artifacts; retain locally and exclude from the repository
 docs/superpowers/
 
 # OS and editor

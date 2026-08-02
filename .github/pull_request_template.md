@@ -2,7 +2,7 @@
 
 - What changed
 - Why it changed
-- Relevant design decision or assessment requirement
+- Relevant design decision or product requirement
 
 ## Scope
 

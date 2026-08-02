@@ -17,7 +17,7 @@ ci/<short-description>
 Examples:
 
 ```text
-docs/add-assessment-baseline
+docs/add-architecture-baseline
 feat/add-backend-health-api
 infra/add-network-foundation
 ci/add-trivy-gate
@@ -34,7 +34,7 @@ type(scope): concise imperative summary
 Examples:
 
 ```text
-docs: add assessment baseline documentation
+docs: add architecture baseline documentation
 feat(backend): add health and version endpoints
 infra(network): add VPC foundation
 ci: add frontend validation workflow
@@ -55,7 +55,7 @@ Rules:
 Use the same Conventional Commit format for the title:
 
 ```text
-docs: add assessment baseline documentation
+docs: add architecture baseline documentation
 ```
 
 Use this description template:
@@ -65,7 +65,7 @@ Use this description template:
 
 - What changed
 - Why it changed
-- Relevant design decision or assessment requirement
+- Relevant design decision or product requirement
 
 ## Scope
 
@@ -109,7 +109,7 @@ After local validation passes, review the diff for secrets and unintended files,
 The initial documentation-only commit may be created and pushed directly to an otherwise empty `main` branch. Every later change follows the feature-branch and pull-request process above.
 
 ```text
-Branch: docs/add-assessment-baseline
-Commit: docs: add assessment baseline documentation
-PR title: docs: add assessment baseline documentation
+Branch: docs/add-architecture-baseline
+Commit: docs: add architecture baseline documentation
+PR title: docs: add architecture baseline documentation
 ```

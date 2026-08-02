@@ -1,6 +1,6 @@
 # Happy Post Backend
 
-FastAPI backend MVP for the Happy Post assessment. It provides health and version routes plus a minimal in-memory Posts API. PostgreSQL schema metadata and an Alembic migration are included for later private RDS integration; this MVP does not connect to or create a database.
+FastAPI backend MVP for Happy Post. It provides health and version routes plus a minimal in-memory Posts API. PostgreSQL schema metadata and an Alembic migration are included for later private RDS integration; this MVP does not connect to or create a database.
 
 ## Local setup
 

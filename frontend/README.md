@@ -1,6 +1,6 @@
 # Happy Post Frontend
 
-Next.js frontend MVP for the Happy Post assessment. It renders a small post board that lists and creates posts through the existing FastAPI API.
+Next.js frontend MVP for Happy Post. It renders a small post board that lists and creates posts through the existing FastAPI API.
 
 ## Local setup
 

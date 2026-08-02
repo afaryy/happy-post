@@ -1,0 +1,56 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/terraform-*.yml"
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-2
+  TF_IN_AUTOMATION: "true"
+  NETWORK_WORKING_DIRECTORY: infra/terraform/foundations/network
+  TERRAFORM_PLAN_ROLE_ARN: arn:aws:iam::893794041695:role/happy-post-sandbox-terraform-plan
+
+jobs:
+  plan-network:
+    name: Plan network foundation
+    if: github.event.pull_request.head.repo.full_name == github.repository && vars.ENABLE_TERRAFORM_PR_PLAN == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out pull request commit
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.TERRAFORM_PLAN_ROLE_ARN }}
+          role-session-name: happy-post-terraform-plan-${{ github.run_id }}
+
+      - name: Initialise remote state
+        run: terraform -chdir="$NETWORK_WORKING_DIRECTORY" init -input=false
+
+      - name: Create plan for pull request commit
+        run: terraform -chdir="$NETWORK_WORKING_DIRECTORY" plan -input=false -lock-timeout=5m -no-color -out=tfplan
+
+      - name: Render plan
+        run: terraform -chdir="$NETWORK_WORKING_DIRECTORY" show -no-color tfplan > tfplan.txt
+
+      - name: Upload rendered plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-network-plan-${{ github.event.pull_request.number }}
+          path: ${{ env.NETWORK_WORKING_DIRECTORY }}/tfplan.txt
+          retention-days: 7

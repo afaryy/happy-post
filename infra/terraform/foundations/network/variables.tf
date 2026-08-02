@@ -5,7 +5,7 @@ variable "aws_region" {
 
   validation {
     condition     = var.aws_region == "ap-southeast-2"
-    error_message = "Happy Post uses ap-southeast-2 for the assessment sandbox."
+    error_message = "Happy Post uses ap-southeast-2 for the sandbox environment."
   }
 }
 
@@ -16,7 +16,7 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "The only assessment environment."
+  description = "The only deployment environment."
   type        = string
   default     = "sandbox"
 

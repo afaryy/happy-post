@@ -76,12 +76,12 @@ flowchart TB
     verify --> result{Successful?}
     result -->|Yes| complete[Deployment complete]
     result -->|No| rollback[Rollback affected ECS service]
-    scope -->|Infrastructure| fresh_plan[Fresh plan for merged immutable commit]
+    scope -->|Infrastructure| fresh_plan[Workflow dispatch resolves immutable main commit]
     fresh_plan --> tf_sandbox[GitHub environment: sandbox]
     tf_sandbox --> apply[Apply that exact plan]
 ~~~
 
-The sandbox environment is an OIDC/configuration boundary, not an approval gate: it has no required reviewers. Same-repository PR plans use a dedicated pull_request OIDC trust context; fork PRs run backend-free validation only. Terraform apply is workflow-dispatch only: it creates a fresh plan for a selected immutable `main` commit and applies that exact plan after required checks pass. Merge never applies Terraform. Destroy is also workflow-dispatch only with explicit confirmation. Detailed sources are [CI/CD diagram](diagrams/cicd.mmd) and [Terraform diagram](diagrams/terraform.mmd).
+The sandbox environment is an OIDC/configuration boundary, not an approval gate: it has no required reviewers. Same-repository PR plans use a dedicated pull_request OIDC trust context once the non-sensitive repository variable `ENABLE_TERRAFORM_PR_PLAN` is enabled; fork PRs run backend-free validation only. Terraform apply is workflow-dispatch only: it resolves and logs the immutable `main` SHA at dispatch, creates a fresh plan for that checkout, and applies that exact plan after required checks pass. Merge never applies Terraform. Destroy is also workflow-dispatch only with explicit confirmation. Detailed sources are [CI/CD diagram](diagrams/cicd.mmd) and [Terraform diagram](diagrams/terraform.mmd).
 
 ## Terraform and Deployment Ownership
 
