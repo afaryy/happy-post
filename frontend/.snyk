@@ -1,0 +1,7 @@
+# Snyk Open Source policy for the frontend dependency manifest.
+version: v1.25.0
+ignore:
+  SNYK-JS-NANOID-18506894:
+    - "*":
+        reason: "Owner and approver: afaryy. Next.js 16.2.12 reaches nanoid through PostCSS CommonJS; forcing the Snyk-suggested Nanoid 5 upgrade would break require('nanoid/non-secure'). No compatible direct upgrade is available in the current dependency chain."
+        expires: "2026-08-16T00:00:00.000Z"

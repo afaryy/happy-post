@@ -16,13 +16,18 @@ boundary, and GitHub OIDC operational roles.
 - default, ALB, frontend, backend, and database security-group boundaries.
 
 `stacks/data` is implemented but not applied. It reads the network-root state
-and creates only the private RDS PostgreSQL data boundary:
+and creates only the private Aurora PostgreSQL Serverless data boundary:
 
 - a database subnet group using the two existing database subnets;
 - a fixed-name Secrets Manager credentials secret with a generated password;
-- a private Single-AZ PostgreSQL 16.14 `db.t4g.micro` instance;
-- encrypted gp3 storage (20–40 GiB), seven-day PITR, and the documented final
-  snapshot policy.
+- one private Aurora PostgreSQL 16.14 `db.serverless` writer;
+- encrypted Aurora storage, a 0–4 ACU Free Plan cost guardrail, seven-day PITR
+  target, and the documented final-cluster-snapshot policy.
+
+This replaced the earlier standard RDS instance design after the active Free Plan
+rejected its required seven-day retention. The first approved Aurora apply must
+verify that the same retention is accepted; it must not weaken the recovery
+target or upgrade the account plan automatically.
 
 The implemented roots deliberately do not create ALB, ECS, ECR, ACM, Route 53
 records, or CI/CD workload resources.

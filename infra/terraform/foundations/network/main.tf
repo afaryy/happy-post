@@ -197,7 +197,7 @@ resource "aws_security_group" "backend" {
 
 resource "aws_security_group" "database" {
   name        = "${local.name_prefix}-database"
-  description = "Backend-only PostgreSQL ingress for the future private RDS instance."
+  description = "Backend-only PostgreSQL ingress for the future private Aurora cluster."
   vpc_id      = aws_vpc.this.id
   egress      = []
 

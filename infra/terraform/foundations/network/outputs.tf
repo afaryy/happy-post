@@ -19,12 +19,12 @@ output "application_subnet_ids" {
 }
 
 output "database_subnet_ids" {
-  description = "Private database subnet IDs for the mandatory RDS data stack."
+  description = "Private database subnet IDs for the mandatory Aurora data stack."
   value       = { for key, subnet in aws_subnet.database : key => subnet.id }
 }
 
 output "security_group_ids" {
-  description = "Security-group IDs consumed by later ALB, ECS, and RDS stacks."
+  description = "Security-group IDs consumed by later ALB, ECS, and Aurora stacks."
   value = {
     alb      = aws_security_group.alb.id
     frontend = aws_security_group.frontend.id

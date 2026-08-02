@@ -36,7 +36,7 @@ that port is temporarily unavailable, use the non-sensitive
 `HAPPY_POST_BACKEND_HOST_PORT=18000` with the Compose commands. This changes only
 the host-side backend port, not internal routing. Compose has no PostgreSQL service;
 the frontend image runs as a non-root user and includes no secrets. P3 does not
-deploy or change AWS, ECS, ALB, OIDC, or RDS.
+deploy or change AWS, ECS, ALB, OIDC, or Aurora.
 
 ## Routes
 

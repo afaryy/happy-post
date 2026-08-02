@@ -12,7 +12,7 @@ flowchart LR
     acm[ACM public certificate] -. "TLS certificate" .-> alb
     alb -->|/*| frontend[Frontend ECS Fargate<br/>Next.js]
     alb -->|/api/*| backend[Backend ECS Fargate<br/>FastAPI]
-    backend -->|PostgreSQL 5432| rds[Private RDS PostgreSQL]
+    backend -->|PostgreSQL 5432| aurora[Private Aurora PostgreSQL Serverless]
     frontend -. logs .-> logs[CloudWatch Logs]
     backend -. logs .-> logs
 ~~~
@@ -23,9 +23,9 @@ Cloudflare remains the parent DNS provider for asksafe.ai and delegates happy-po
 
 ![AWS sandbox runtime architecture](diagrams/aws-ecs-runtime-architecture.drawio.svg)
 
-The frontend and backend are deployed as independently versioned ECS Fargate services behind a shared HTTPS Application Load Balancer. Path-based routing sends `/*` traffic to the Next.js frontend and `/api/*` traffic to the FastAPI backend. Only the backend security group can connect to Amazon RDS PostgreSQL on TCP 5432. Database credentials are retrieved through ECS task-definition secret injection by the backend task execution role. Both services use separate ECR repositories, task-definition families, target groups, log groups, and deployment histories while sharing the ECS cluster, VPC, ALB, and application domain.
+The frontend and backend are deployed as independently versioned ECS Fargate services behind a shared HTTPS Application Load Balancer. Path-based routing sends `/*` traffic to the Next.js frontend and `/api/*` traffic to the FastAPI backend. Only the backend security group can connect to the private Aurora PostgreSQL Serverless cluster on TCP 5432. Database credentials are retrieved through ECS task-definition secret injection by the backend task execution role. Both services use separate ECR repositories, task-definition families, target groups, log groups, and deployment histories while sharing the ECS cluster, VPC, ALB, and application domain.
 
-The runtime diagram deliberately separates deployed traffic and network controls from provisioning and CI/CD. Amazon ECR, Secrets Manager, CloudWatch, Route 53, and ACM are regional managed services outside the VPC. RDS is private in database subnets; Secrets Manager is not placed in a database subnet.
+The runtime diagram deliberately separates deployed traffic and network controls from provisioning and CI/CD. Amazon ECR, Secrets Manager, CloudWatch, Route 53, and ACM are regional managed services outside the VPC. Aurora is private in database subnets; Secrets Manager is not placed in a database subnet.
 
 ## Delivery and Control Plane
 
@@ -45,7 +45,7 @@ The hosted-zone ID is non-sensitive configuration. Terraform manages ACM DNS-val
 
 ## Network Egress
 
-Sandbox uses one NAT Gateway in a public subnet as an explicit cost/availability trade-off. Private application subnets use it for outbound ECR, CloudWatch Logs, and approved external-dependency access. The Internet Gateway supports the public ALB and NAT Gateway only. RDS has no public route. VPC endpoints remain disabled.
+Sandbox uses one NAT Gateway in a public subnet as an explicit cost/availability trade-off. Private application subnets use it for outbound ECR, CloudWatch Logs, and approved external-dependency access. The Internet Gateway supports the public ALB and NAT Gateway only. Aurora has no public route. VPC endpoints remain disabled.
 
 ## Routing
 
@@ -85,11 +85,11 @@ The sandbox environment is an OIDC/configuration boundary, not an approval gate:
 
 ## Terraform and Deployment Ownership
 
-Terraform owns foundations and stable configuration: networking, private RDS PostgreSQL and database subnets/security group, Secrets Manager database credentials, ALB/listeners, Route 53 and ACM records, ECR, ECS cluster/services, IAM, logging, and initial task definitions. The mandatory data stack has its own state and lifecycle.
+Terraform owns foundations and stable configuration: networking, private Aurora PostgreSQL Serverless and database subnets/security group, Secrets Manager database credentials, ALB/listeners, Route 53 and ACM records, ECR, ECS cluster/services, IAM, logging, and initial task definitions. The mandatory data stack has its own state and lifecycle.
 
 CloudFormation bootstrap owns the S3 state bucket, DynamoDB lock table, runtime permissions boundary, and GitHub OIDC roles. Terraform uses the S3 backend with DynamoDB as the only locking mechanism. The version-controlled bootstrap source is [`infra/bootstrap/happy-post-terraform-bootstrap.yaml`](../infra/bootstrap/happy-post-terraform-bootstrap.yaml). The state bucket is retained; the lock table has deletion protection and is retained on bootstrap stack deletion or replacement.
 
-The version-controlled [`foundations/network`](../infra/terraform/foundations/network) root declares the applied two-AZ VPC, public/application/database subnet tiers, one NAT Gateway, route tables, and ALB/frontend/backend/database security-group boundaries. The separate [`stacks/data`](../infra/terraform/stacks/data) root reads only its network outputs and has its own `sandbox/stacks/data/terraform.tfstate` object. It creates the private DB subnet group, fixed-name database credentials secret, and RDS instance when a future approved data-target apply is dispatched.
+The version-controlled [`foundations/network`](../infra/terraform/foundations/network) root declares the applied two-AZ VPC, public/application/database subnet tiers, one NAT Gateway, route tables, and ALB/frontend/backend/database security-group boundaries. The separate [`stacks/data`](../infra/terraform/stacks/data) root reads only its network outputs and has its own `sandbox/stacks/data/terraform.tfstate` object. It creates the private DB subnet group, fixed-name database credentials secret, Aurora cluster, and one Serverless writer when a future approved data-target apply is dispatched.
 
 ## Bootstrap Inputs
 
@@ -104,19 +104,30 @@ CloudFormation created the state bucket and lock table. The lock table must not 
 
 An ECR push does not update ECS by itself. CI verifies the pushed immutable digest, registers a later digest-pinned task-definition revision, and updates the selected ECS service to that revision. Terraform ignores subsequent service task-definition drift so that it does not undo a valid deployment.
 
-## RDS Sandbox Configuration
+## Aurora PostgreSQL Serverless Sandbox Configuration
 
 | Setting | Value |
 | --- | --- |
-| Engine | PostgreSQL 16.14 initially; automatic minor upgrades; verify available PostgreSQL 16.x in ap-southeast-2 before apply |
-| Instance | Single-AZ db.t4g.micro |
-| Storage | Encrypted gp3, 20 GiB allocated, 40 GiB maximum autoscaled |
+| Engine | Aurora PostgreSQL 16.14 initially; automatic minor upgrades; verify availability in ap-southeast-2 before apply |
+| Runtime | One private `db.serverless` writer; no reader |
+| Capacity | 0–4 ACUs as a current Free Plan cost guardrail, with AWS auto-pause when the selected engine supports it; tune only after observing workload metrics |
+| Storage | Encrypted Aurora standard storage |
 | Recovery | Seven-day PITR; backup 15:30-16:00 UTC daily |
 | Maintenance | sun:16:30-sun:17:00 UTC |
 | Credentials | Generated by Terraform and stored only in `happy-post-sandbox-database-credentials`; secret value is never an output |
 | Destroy | Deletion protection disabled; final snapshot required with a stable random suffix; automated backups not retained |
 
 See [Operations](operations.md) for the required restore-test procedure.
+
+### Free Plan design decision
+
+The original private RDS PostgreSQL `db.t4g.micro` and gp3 design could not be
+created because the active AWS Free Plan rejected its required seven-day backup
+retention. Aurora PostgreSQL Serverless is available in the same region and can
+retain the existing private VPC, backend-only access, generated secret,
+encryption, and seven-day PITR objectives without changing the account to a Paid
+Plan. The first approved apply must still verify that the account accepts the
+seven-day Aurora retention setting; no AWS dry-run API can prove that in advance.
 
 ## Explicitly Outside the Baseline
 

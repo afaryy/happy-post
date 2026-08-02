@@ -3,7 +3,7 @@
 ## Local P3 runbook
 
 P3 provides local container validation only; it does not deploy to AWS, ECS, an
-ALB, OIDC, or RDS. From the repository root, use:
+ALB, OIDC, or Aurora. From the repository root, use:
 
 ```bash
 docker compose up --build -d
@@ -33,7 +33,7 @@ The Terraform test workflow runs backend-free validation for every Terraform-rel
 
 The bootstrap state bucket and DynamoDB lock table are not workload-destroy targets. The bucket is retained and the lock table is deletion-protected and retained. A deliberate bootstrap teardown requires documented approval, safe removal of all dependent Terraform state, disabling lock-table deletion protection, then explicit lock-table deletion.
 
-The RDS data stack is provisioned separately from application services. Database migrations must be backward-compatible, run before the backend version that requires them, and have a documented restore or compensating-migration approach before deployment.
+The Aurora data stack is provisioned separately from application services. Database migrations must be backward-compatible, run before the backend version that requires them, and have a documented restore or compensating-migration approach before deployment. The first approved data apply must stop if the Free Plan rejects the required seven-day backup retention; it must not lower the retention or upgrade the account plan as an automatic workaround.
 
 ## Verification
 

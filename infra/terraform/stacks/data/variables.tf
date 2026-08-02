@@ -37,3 +37,25 @@ variable "master_username" {
   type        = string
   default     = "happy_post_admin"
 }
+
+variable "aurora_serverless_min_capacity" {
+  description = "Minimum Aurora Serverless v2 capacity. Zero permits AWS auto-pause when supported by the selected engine version."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.aurora_serverless_min_capacity >= 0 && var.aurora_serverless_min_capacity <= 4
+    error_message = "The sandbox Free Plan capacity guardrail allows a minimum capacity from 0 through 4 ACUs."
+  }
+}
+
+variable "aurora_serverless_max_capacity" {
+  description = "Maximum Aurora Serverless v2 capacity, capped at the current Free Plan guardrail rather than sized from workload metrics."
+  type        = number
+  default     = 4
+
+  validation {
+    condition     = var.aurora_serverless_max_capacity > 0 && var.aurora_serverless_max_capacity <= 4
+    error_message = "The sandbox Free Plan capacity guardrail allows a maximum capacity greater than 0 through 4 ACUs."
+  }
+}
