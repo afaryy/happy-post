@@ -3,7 +3,7 @@
 ## Local P3 runbook
 
 P3 provides local container validation only; it does not deploy to AWS, ECS, an
-ALB, OIDC, or Aurora. From the repository root, use:
+ALB, OIDC, or RDS. From the repository root, use:
 
 ```bash
 docker compose up --build -d
@@ -29,11 +29,11 @@ Terraform provisions the stable service infrastructure and initial task definiti
 
 Terraform infrastructure apply is separate from application delivery. It is started only by workflow dispatch; the workflow resolves and logs the current immutable `main` commit, creates a fresh plan for that checkout, and applies that exact plan through the `sandbox` OIDC role. A merge never applies Terraform. Destroy is separately dispatched with explicit confirmation and the same immutable-main resolution.
 
-The Terraform test workflow runs backend-free validation for every Terraform-related pull request. The manual plan workflow and manual apply/destroy workflows select a canonical root through the same fixed `target` allow-list; they resolve and log the immutable `origin/main` SHA when dispatched. Plan assumes the read-only plan role and uploads a rendered artifact. Apply creates a fresh plan in the same job and applies that exact file through the separate apply role. Apply and destroy confirmations are `apply-<target>` and `destroy-<target>`. A target missing from the resolved commit fails before credentials are configured. The applied `network` root and un-applied `data` root are current implemented targets.
+The Terraform test workflow runs backend-free validation for every Terraform-related pull request. The manual plan workflow and manual apply/destroy workflows select a canonical root through the same fixed `target` allow-list; they resolve and log the immutable `origin/main` SHA when dispatched. Plan assumes the read-only plan role and uploads a rendered artifact. Apply creates a fresh plan in the same job and applies that exact file through the separate apply role. Apply and destroy confirmations are `apply-<target>` and `destroy-<target>`. A target missing from the resolved commit fails before credentials are configured. The applied `network` and `data` roots are current implemented targets.
 
 The bootstrap state bucket and DynamoDB lock table are not workload-destroy targets. The bucket is retained and the lock table is deletion-protected and retained. A deliberate bootstrap teardown requires documented approval, safe removal of all dependent Terraform state, disabling lock-table deletion protection, then explicit lock-table deletion.
 
-The Aurora data stack is provisioned separately from application services. Database migrations must be backward-compatible, run before the backend version that requires them, and have a documented restore or compensating-migration approach before deployment. The active Free Plan rejected seven-day retention for both the prior RDS design and the first Aurora attempt. The approved sandbox data stack therefore tests one-day PITR, the Aurora minimum; it must not upgrade the account plan automatically. A future paid environment must restore a seven-day-or-greater recovery objective.
+The private RDS PostgreSQL data stack is provisioned separately from application services. Database migrations must be backward-compatible, run before the backend version that requires them, and have a documented restore or compensating-migration approach before deployment. The active Free Plan rejected the former seven-day retention objective and permits the deployed private RDS configuration with one-day PITR. It must not upgrade the account plan automatically. A future paid environment must restore a seven-day-or-greater recovery objective.
 
 ## Verification
 

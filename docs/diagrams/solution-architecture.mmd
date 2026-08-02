@@ -7,6 +7,6 @@ flowchart TB
     alb -->|higher-priority /api/* and /backend/*| backend_tg[Backend target group]
     frontend_tg --> frontend[Frontend ECS Fargate service<br/>Next.js]
     backend_tg --> backend[Backend ECS Fargate service<br/>FastAPI]
-    backend -->|PostgreSQL 5432 only| aurora[Private Aurora PostgreSQL Serverless]
+    backend -->|PostgreSQL 5432 only| rds[Private RDS PostgreSQL]
     frontend --> frontend_logs[CloudWatch Logs]
     backend --> backend_logs[CloudWatch Logs]

@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document records the operational baseline for the single sandbox environment. The network foundation is applied; Aurora and workload resources remain pending a future approved workflow-dispatch apply.
+This document records the operational baseline for the single sandbox environment. The network and private RDS PostgreSQL data foundations are applied; workload resources remain pending a future approved workflow-dispatch apply.
 
 ## Service health and observability
 
@@ -14,13 +14,13 @@ This document records the operational baseline for the single sandbox environmen
 
 ## Database operations
 
-- Aurora PostgreSQL Serverless remains private and is reachable only from the backend service.
+- RDS PostgreSQL remains private and is reachable only from the backend service.
 - Database credentials are held only in the fixed Secrets Manager secret `happy-post-sandbox-database-credentials`; operators must not retrieve or place them in repository files.
-- Aurora uses PostgreSQL 16.14 at initial creation with automatic minor-version upgrades enabled. Terraform verifies an available Aurora PostgreSQL 16.14 release in ap-southeast-2 before apply.
-- Aurora uses one private `db.serverless` writer with encrypted Aurora standard storage. Its 0–1 ACU range is an assessment cost guardrail rather than workload sizing. The zero minimum permits Aurora auto-pause when supported by the selected engine; keep database connections closed outside active work. Increase the one-ACU maximum only through a reviewed Terraform change after observing CloudWatch CPU and connection metrics.
-- Aurora automated backups and point-in-time recovery are configured for one day, the Aurora minimum selected for active Free Plan validation. Preferred backup window is 15:30-16:00 UTC daily; preferred maintenance window is sun:16:30-sun:17:00 UTC. This is an approved sandbox deviation from the former seven-day objective. The next approved apply must verify that the Free Plan accepts it; a future paid environment must restore a seven-day-or-greater recovery objective.
-- Deletion protection is disabled for sandbox. Intentional destroy creates a uniquely named final cluster snapshot, does not retain automated backups, and requires the snapshot owner to review and delete it within seven days unless retention is explicitly approved.
-- Restore testing is required before a release and after every database-changing migration. Restore to an isolated temporary private Aurora cluster and writer, verify availability, approved private connectivity, SELECT 1, migration version, and row-count sanity check, record evidence, then remove the temporary restore resources.
+- RDS uses PostgreSQL 16.14 at creation with automatic minor-version upgrades enabled.
+- RDS uses one private `db.t4g.micro` instance in Single-AZ with encrypted gp3 storage (20 GiB allocated, 40 GiB maximum). It is intentionally cost-conscious sandbox sizing; changes require a reviewed Terraform change after observing CloudWatch CPU, storage, and connection metrics.
+- RDS automated backups and point-in-time recovery are configured for one day, the maximum permitted by the active Free Plan. Preferred backup window is 15:30-16:00 UTC daily; preferred maintenance window is sun:16:30-sun:17:00 UTC. This is an approved sandbox deviation from the former seven-day objective. A future paid environment must restore a seven-day-or-greater recovery objective.
+- Deletion protection is disabled for sandbox. Intentional destroy creates a uniquely named final DB snapshot, does not retain automated backups, and requires the snapshot owner to review and delete it within seven days unless retention is explicitly approved.
+- Restore testing is required before a release and after every database-changing migration. Restore to an isolated temporary private RDS instance, verify availability, approved private connectivity, `SELECT 1`, migration version, and a row-count sanity check, record evidence, then remove the temporary restore resources. This test remains outstanding because the application has not yet integrated with RDS.
 - A database change requires a backward-compatible migration plan and either a restore plan or a compensating migration before deployment.
 
 ## Terraform state-backend operations

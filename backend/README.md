@@ -1,6 +1,6 @@
 # Happy Post Backend
 
-FastAPI backend MVP for Happy Post. It provides health and version routes plus a minimal in-memory Posts API. PostgreSQL schema metadata and an Alembic migration are included for later private Aurora PostgreSQL integration; this MVP does not connect to or create a database.
+FastAPI backend MVP for Happy Post. It provides health and version routes plus a minimal in-memory Posts API. PostgreSQL schema metadata and an Alembic migration are included for later private RDS PostgreSQL integration; this MVP does not connect to or create a database.
 
 ## Local setup
 
@@ -32,7 +32,7 @@ If that host port is occupied, use the non-sensitive temporary override
 still listens on port 8000. Compose contains no PostgreSQL service. The frontend
 continues to reach this backend internally as `http://backend:8000` and proxies
 its relative `/api/posts` requests there. The runtime image runs as a non-root
-user and contains no secrets. This is local-only P3 work, not Aurora or AWS deployment.
+user and contains no secrets. This is local-only P3 work, not RDS or AWS deployment.
 
 ## Routes
 

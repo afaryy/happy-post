@@ -33,9 +33,9 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Implement and locally validate the remote-state configuration and two-AZ network foundation, including subnet, route, NAT, and security-group boundaries.
 - [x] Apply and reconcile the network root, including the backend-only PostgreSQL security-group boundary.
 - [ ] Implement the remaining Terraform foundation and workload stacks using the documented ownership boundary.
-- [x] Implement and validate the private Aurora PostgreSQL Serverless data stack, database subnet group, and Secrets Manager credential integration; do not apply it locally.
-- [x] Replace the standard RDS design because the active Free Plan rejected seven-day retention. The first Aurora attempt confirmed the same restriction; retain PostgreSQL 16.14, private VPC access, encrypted Aurora storage, a 0–1 ACU assessment cost guardrail, one-day PITR as the approved sandbox candidate, documented windows, and final-cluster-snapshot lifecycle.
-- [ ] Apply the data root through the manual `data` target only after the reviewed plan is approved, and verify one-day Aurora retention after creation.
+- [x] Implement, apply, and validate the private RDS PostgreSQL data stack, database subnet group, and Secrets Manager credential integration through the manual `data` target.
+- [x] Record the approved Free Plan deviation: the active account rejects seven-day retention and Aurora Express Configuration cannot meet private VPC controls. The deployed RDS PostgreSQL 16.14 `db.t4g.micro` uses private VPC access, encrypted gp3 storage (20–40 GiB), Single-AZ, one-day PITR, documented windows, and final-snapshot lifecycle.
+- [ ] Perform the required isolated RDS restore test before the first database-changing release or migration.
 - [ ] Configure frontend and backend CPU target-tracking scaling: minimum one task, maximum two tasks, 65% CPU target.
 - [ ] Configure ACM and Route 53 records within the delegated hosted zone.
 
