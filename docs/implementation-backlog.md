@@ -32,12 +32,13 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Apply and post-bootstrap validate the CloudFormation bootstrap with the required OIDC, immutable GitHub subject, state bucket, DynamoDB locking, and retention controls.
 - [x] Implement and locally validate the remote-state configuration and two-AZ network foundation, including subnet, route, NAT, and security-group boundaries.
 - [x] Apply and reconcile the network root, including the backend-only PostgreSQL security-group boundary.
-- [ ] Implement the remaining Terraform foundation and workload stacks using the documented ownership boundary.
 - [x] Implement, apply, and validate the private RDS PostgreSQL data stack, database subnet group, and Secrets Manager credential integration through the manual `data` target.
 - [x] Record the approved Free Plan deviation: the active account rejects seven-day retention and Aurora Express Configuration cannot meet private VPC controls. The deployed RDS PostgreSQL 16.14 `db.t4g.micro` uses private VPC access, encrypted gp3 storage (20–40 GiB), Single-AZ, one-day PITR, documented windows, and final-snapshot lifecycle.
-- [ ] Perform the required isolated RDS restore test before the first database-changing release or migration.
+- [ ] Implement the platform foundation: two private ECR repositories, one ECS cluster, component log groups, and separate frontend/backend task and execution roles bounded by the bootstrap permissions boundary.
+- [ ] Implement the public edge: ACM certificate, HTTPS ALB, target groups, listener rules, and Route 53 records only inside the delegated hosted zone.
+- [ ] Implement the frontend and backend ECS service stacks: digest-ready initial task definitions, private service networking, target-group attachment, backend-only RDS secret injection, and deployment-safe task-definition drift handling.
 - [ ] Configure frontend and backend CPU target-tracking scaling: minimum one task, maximum two tasks, 65% CPU target.
-- [ ] Configure ACM and Route 53 records within the delegated hosted zone.
+- [ ] Perform the required isolated RDS restore test before the first database-changing release or migration.
 
 ## P5 — CI/CD and operational validation
 
