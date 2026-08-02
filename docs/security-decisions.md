@@ -18,7 +18,7 @@ CloudFormation owns the private versioned S3 state bucket and the DynamoDB lock 
 
 ## Runtime boundaries
 
-Frontend and backend tasks use separate task roles, execution roles, security groups, image repositories, log groups, task-definition families, and ECS services. The frontend execution role pulls only its image and publishes frontend logs. The backend execution role pulls only its image, publishes backend logs, and is the only execution role allowed to retrieve the named database secret. Tasks remain private; only the ALB is internet-facing. The ALB security-group ingress is HTTPS only, and task security groups accept application traffic only from the ALB security group. Aurora PostgreSQL Serverless is private, has no public route or public IP, and accepts TCP 5432 only from the backend security group.
+Frontend and backend tasks use separate task roles, execution roles, security groups, image repositories, log groups, task-definition families, and ECS services. The frontend execution role pulls only its image and publishes frontend logs. The backend execution role pulls only its image, publishes backend logs, and is the only execution role allowed to retrieve the named database secret. Tasks remain private; only the ALB is internet-facing. The ALB security-group ingress is HTTPS only, and task security groups accept application traffic only from the ALB security group. RDS PostgreSQL is private, has no public route or public IP, and accepts TCP 5432 only from the backend security group.
 
 ### Local P3 container boundary
 
@@ -30,11 +30,11 @@ temporary host-port override (for example, `18000`); it does not change the
 container port or the internal frontend-to-backend route `http://backend:8000`.
 Dockerfiles, Compose, and their build contexts contain no credentials or secret
 values. This local-container work does not implement or alter ECS, ALB, OIDC, or
-Aurora controls.
+RDS controls.
 
 ## Secrets and configuration
 
-No secret values belong in source control, documentation, GitHub variables, or container images. Terraform generates the database password and writes it to the fixed Secrets Manager secret `happy-post-sandbox-database-credentials`; it is sensitive in Terraform state and is never an output. The bootstrap apply role receives only `secretsmanager:PutSecretValue` to create that version. The read-only manual plan role receives `secretsmanager:GetSecretValue` only for the same secret so the provider can refresh its managed secret-version state; it has no write permission. Database credentials are injected through the ECS backend task definition; the backend task execution role is the only runtime workload role with `secretsmanager:GetSecretValue` for the named database secret. The frontend task role has no AWS API permissions. The hosted-zone ID, `Z07821441TT04VLUXZXPO`, is non-sensitive configuration and may be stored as a Terraform input or CI variable.
+No secret values belong in source control, documentation, GitHub variables, or container images. Terraform generates the database password and writes it to the fixed Secrets Manager secret `happy-post-sandbox-database-credentials`; it is sensitive in Terraform state and is never an output. The bootstrap apply role receives scoped `secretsmanager:PutSecretValue` and `secretsmanager:GetSecretValue` for that secret: Terraform must read the version it writes to wait for provider confirmation. The read-only manual plan role receives `secretsmanager:GetSecretValue` only for the same secret and has no write permission. Database credentials are injected through the ECS backend task definition; the backend task execution role is the only runtime workload role with `secretsmanager:GetSecretValue` for the named database secret. The frontend task role has no AWS API permissions. The hosted-zone ID, `Z07821441TT04VLUXZXPO`, is non-sensitive configuration and may be stored as a Terraform input or CI variable.
 
 ## Image and security governance
 
@@ -51,7 +51,7 @@ Current approved Trivy exceptions are limited to the following baseline trade-of
 
 | Finding | Path | Owner / approver | Expiry | Rationale |
 | --- | --- | --- | --- | --- |
-| `AWS-0079` | `infra/terraform/stacks/data/main.tf` | afaryy / afaryy | 2026-11-02 | The sandbox Aurora PostgreSQL Serverless v2 cluster uses AWS-managed encryption with `storage_encrypted` enabled. A customer-managed KMS key is deferred to avoid expanding the sandbox IAM and key-management surface. |
+| `AWS-0079` | `infra/terraform/stacks/data/main.tf` | afaryy / afaryy | 2026-11-02 | The sandbox RDS PostgreSQL instance uses AWS-managed encryption with `storage_encrypted` enabled. A customer-managed KMS key is deferred to avoid expanding the sandbox IAM and key-management surface. |
 | `AWS-0132` | `infra/bootstrap/happy-post-terraform-bootstrap.yaml` | afaryy / afaryy | 2026-11-02 | The retained sandbox Terraform-state bucket uses SSE-S3; a customer-managed KMS key is deferred. |
 | `AWS-0104` | `infra/terraform/foundations/network/main.tf` | afaryy / afaryy | 2026-11-02 | Private frontend and backend tasks require HTTPS egress through the single sandbox NAT Gateway for ECR, CloudWatch, and external dependencies while VPC endpoints are deferred. |
 

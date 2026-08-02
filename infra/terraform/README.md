@@ -15,21 +15,20 @@ boundary, and GitHub OIDC operational roles.
 - public, application, and database route-table boundaries;
 - default, ALB, frontend, backend, and database security-group boundaries.
 
-`stacks/data` is implemented but not applied. It reads the network-root state
-and creates only the private Aurora PostgreSQL Serverless data boundary:
+`stacks/data` is applied. It reads the network-root state and creates the private
+RDS PostgreSQL data boundary:
 
 - a database subnet group using the two existing database subnets;
 - a fixed-name Secrets Manager credentials secret with a generated password;
-- one private Aurora PostgreSQL 16.14 `db.serverless` writer;
-- encrypted Aurora storage, a 0–1 ACU assessment cost guardrail (with a zero
-  minimum for supported auto-pause), one-day PITR as the approved Free Plan
-  validation candidate, and the documented final-cluster-snapshot policy.
+- one private RDS PostgreSQL 16.14 `db.t4g.micro` instance in Single-AZ;
+- encrypted gp3 storage (20 GiB allocated and 40 GiB maximum), one-day PITR as
+  the active Free Plan maximum, and the documented final-DB-snapshot policy.
 
-This replaced the earlier standard RDS instance design after the active Free Plan
-rejected its required seven-day retention. The first Aurora apply confirmed that
-the same plan rejects seven-day Aurora retention. The approved sandbox tests the
-Aurora minimum of one day; it must not upgrade the account plan automatically.
-A future paid environment must restore a seven-day-or-greater recovery objective.
+The active Free Plan rejects the former seven-day recovery objective. Aurora would
+require Express Configuration, which cannot meet Happy Post's private VPC,
+backend-only, and Secrets Manager controls. The deployed private RDS instance
+uses one-day retention without upgrading the account plan. A future paid
+environment must restore a seven-day-or-greater recovery objective.
 
 The implemented roots deliberately do not create ALB, ECS, ECR, ACM, Route 53
 records, or CI/CD workload resources.
