@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  Happy Post sandbox bootstrap for the DevOps technical assessment. Final reviewed baseline. Creates the Terraform S3 backend and
+  Happy Post sandbox bootstrap. Creates the Terraform S3 backend and
   GitHub Actions roles while reusing an existing account-level GitHub OIDC provider.
 
 Parameters:

@@ -27,7 +27,9 @@ An ECR image push does not update ECS by itself. After the push, the deployment 
 
 Terraform provisions the stable service infrastructure and initial task definition. CI creates later task-definition revisions and updates services to a digest-pinned image. Terraform ignores the service `task_definition` field after initial creation to avoid undoing a valid deployment.
 
-Terraform infrastructure apply is separate from application delivery. It is started only by workflow dispatch for a selected immutable `main` commit, creates a fresh plan for that commit, and applies that exact plan through the `sandbox` OIDC role. A merge never applies Terraform. Destroy is separately dispatched with explicit confirmation.
+Terraform infrastructure apply is separate from application delivery. It is started only by workflow dispatch; the workflow resolves and logs the current immutable `main` commit, creates a fresh plan for that checkout, and applies that exact plan through the `sandbox` OIDC role. A merge never applies Terraform. Destroy is separately dispatched with explicit confirmation and the same immutable-main resolution.
+
+The Terraform test workflow runs backend-free validation for every Terraform-related pull request; the plan workflow uses the read-only plan role only for same-repository pull requests after the non-sensitive repository variable `ENABLE_TERRAFORM_PR_PLAN` is set to `true`. The variable remains unset until this workflow release is merged, preventing its own PR from using AWS credentials. Manual apply/destroy select a canonical root through a fixed `target` allow-list. Their confirmation phrases are `apply-<target>` and `destroy-<target>`. Both controls resolve and log the immutable `origin/main` SHA when dispatched, create the plan in the same job, and then use that exact file. The initial release has only the `network` root; selecting a future root before its directory exists fails before credentials are configured.
 
 The bootstrap state bucket and DynamoDB lock table are not workload-destroy targets. The bucket is retained and the lock table is deletion-protected and retained. A deliberate bootstrap teardown requires documented approval, safe removal of all dependent Terraform state, disabling lock-table deletion protection, then explicit lock-table deletion.
 
@@ -50,4 +52,4 @@ If a deployment fails health checks, ECS stability checks, or smoke tests, the d
 
 ## Scope limits
 
-Blue/green deployment and notification integrations are optional enhancements and disabled in the assessment baseline. Baseline rollback is an ECS rolling deployment rollback for one affected service at a time.
+Blue/green deployment and notification integrations are optional enhancements and disabled in the current baseline. Baseline rollback is an ECS rolling deployment rollback for one affected service at a time.

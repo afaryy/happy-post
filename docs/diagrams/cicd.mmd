@@ -36,6 +36,6 @@ flowchart TB
     result -->|Yes| complete[Deployment complete]
     result -->|No| rollback[Roll back affected ECS service<br/>to prior task definition and image digest]
 
-    manual_apply[Workflow dispatch:<br/>select immutable main commit] --> fresh_plan[Create fresh plan for selected commit]
+    manual_apply[Workflow dispatch:<br/>select target and confirm] --> fresh_plan[Resolve immutable main commit<br/>and create fresh plan]
     fresh_plan --> terraform_sandbox[GitHub environment: sandbox]
     terraform_sandbox --> apply[Apply that exact plan]

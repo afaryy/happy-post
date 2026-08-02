@@ -11,7 +11,7 @@ The documentation baseline and application MVPs are complete. The remaining work
 ## P1 — Backend MVP
 
 - [x] Create the FastAPI backend application.
-- [x] Implement `/healthz`, `/version`, `/backend/healthz`, and `/backend/version`, plus the assessment API contract under `/api/*`.
+- [x] Implement `/healthz`, `/version`, `/backend/healthz`, and `/backend/version`, plus the posts API contract under `/api/*`.
 - [x] Define the PostgreSQL data model and migration approach required by the backend.
 - [x] Add unit tests, linting, dependency management, and local configuration examples without secrets.
 
@@ -24,7 +24,7 @@ The documentation baseline and application MVPs are complete. The remaining work
 ## P3 — Local containers
 
 - [x] Add separate frontend and backend Dockerfiles.
-- [x] Add local development orchestration only if it supports the documented assessment workflow.
+- [x] Add local development orchestration that supports the documented development workflow.
 - [x] Verify each image exposes only the needed runtime interface.
 
 ## P4 — AWS foundation
@@ -39,9 +39,10 @@ The documentation baseline and application MVPs are complete. The remaining work
 
 ## P5 — CI/CD and operational validation
 
-- [ ] Implement CI checks, image publication, workflow-dispatch-only Terraform apply/destroy controls, ECS deployment, smoke tests, and rollback automation.
+- [x] Implement Terraform format/validate/TFLint, same-repository PR-plan control, and workflow-dispatch-only apply/destroy controls with a fixed canonical-root target allow-list. The AWS-backed PR plan remains fail-closed until `ENABLE_TERRAFORM_PR_PLAN=true` is set after this workflow release is merged.
+- [ ] Implement application CI checks, image publication, ECS deployment, smoke tests, and rollback automation.
 - [ ] Configure the single GitHub environment, `sandbox`, without required reviewers and validate role separation.
 
 ## Deferred options
 
-WAF, Service Connect, blue/green deployment, VPC endpoints, notifications, and end-to-end TLS are not assessment-baseline work. Each requires an explicit design decision before implementation.
+WAF, Service Connect, blue/green deployment, VPC endpoints, notifications, and end-to-end TLS are not current-baseline work. Each requires an explicit design decision before implementation.

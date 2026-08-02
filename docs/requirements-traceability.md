@@ -1,6 +1,6 @@
-# Assessment Traceability
+# Requirements Traceability
 
-| Assessment need | Baseline decision | Evidence location |
+| Requirement | Baseline decision | Evidence location |
 | --- | --- | --- |
 | Frontend and backend application delivery | Next.js frontend and FastAPI backend are separate services; both MVPs are implemented locally | [Architecture](architecture.md), [Backend MVP](../backend/README.md), [Frontend MVP](../frontend/README.md) |
 | Health and version endpoints | Backend has `/healthz` and `/version`; frontend has container-local `/healthz` and `/version` plus public `/frontend/*` aliases | [Backend MVP](../backend/README.md), [Frontend MVP](../frontend/README.md), [`frontend/app/healthz/route.ts`](../frontend/app/healthz/route.ts), [`frontend/app/version/route.ts`](../frontend/app/version/route.ts) |

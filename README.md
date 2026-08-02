@@ -1,6 +1,6 @@
-# Happy Post DevOps Candidate Technical Assessment
+# Happy Post
 
-Happy Post is a DevOps assessment project with a Next.js frontend and FastAPI backend. The target delivery architecture uses two independently deployable container images and ECS Fargate services.
+Happy Post is a cloud-native application with a Next.js frontend and FastAPI backend. The delivery architecture uses two independently deployable container images and ECS Fargate services.
 
 ## Current status
 
@@ -9,6 +9,7 @@ The MVP application source is present: a FastAPI posts API and a Next.js post bo
 - [Backend MVP](backend/README.md): posts API, operational endpoints, PostgreSQL-ready schema and migration, tests, linting, and local configuration example.
 - [Frontend MVP](frontend/README.md): post board, backend API integration, operational endpoints, tests, linting, and local configuration example.
 - [Terraform foundation](infra/terraform/README.md): version constraints, remote state, and the unapplied sandbox network baseline.
+- [Terraform workflow controls](.github/workflows/terraform-test.yml): validation, same-repository PR plans, and manual apply/destroy controls.
 
 ## Run locally with containers
 
@@ -85,7 +86,7 @@ The maintainable logical source is [solution architecture](docs/diagrams/solutio
 - [Architecture](docs/architecture.md)
 - [Networking](docs/networking.md)
 - [CI/CD and control plane](docs/cicd.md)
-- [Assessment traceability](docs/assessment-traceability.md)
+- [Requirements traceability](docs/requirements-traceability.md)
 - [Implementation backlog](docs/implementation-backlog.md)
 - [Security decisions](docs/security-decisions.md)
 - [Deployment and rollback](docs/deployment-and-rollback.md)
