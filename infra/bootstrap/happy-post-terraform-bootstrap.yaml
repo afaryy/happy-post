@@ -420,6 +420,7 @@ Resources:
                   - rds:DeleteDBSubnetGroup
                   - rds:DeleteDBParameterGroup
                   - rds:Describe*
+                  - rds:ListTagsForResource
                   - rds:ModifyDBInstance
                   - rds:ModifyDBParameterGroup
                   - rds:ModifyDBSubnetGroup
