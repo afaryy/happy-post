@@ -54,6 +54,7 @@ Current approved Trivy exceptions are limited to the following baseline trade-of
 | `AWS-0079` | `infra/terraform/stacks/data/main.tf` | afaryy / afaryy | 2026-11-02 | The sandbox RDS PostgreSQL instance uses AWS-managed encryption with `storage_encrypted` enabled. A customer-managed KMS key is deferred to avoid expanding the sandbox IAM and key-management surface. |
 | `AWS-0132` | `infra/bootstrap/happy-post-terraform-bootstrap.yaml` | afaryy / afaryy | 2026-11-02 | The retained sandbox Terraform-state bucket uses SSE-S3; a customer-managed KMS key is deferred. |
 | `AWS-0104` | `infra/terraform/foundations/network/main.tf` | afaryy / afaryy | 2026-11-02 | Private frontend and backend tasks require HTTPS egress through the single sandbox NAT Gateway for ECR, CloudWatch, and external dependencies while VPC endpoints are deferred. |
+| `AWS-0053` | `infra/terraform/foundations/edge/main.tf` | afaryy / afaryy | 2026-11-02 | The internet-facing ALB is the approved HTTPS entry point for `happy-post.asksafe.ai`; only the ALB is public, while Fargate services and RDS remain private. |
 
 These exceptions do not suppress dependency or secret findings. They must be removed, renewed with a new approval, or replaced by an implemented security control before expiry.
 
