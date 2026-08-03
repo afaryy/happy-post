@@ -3,8 +3,8 @@ import hashlib
 import hmac
 import os
 
-PASSWORD_ALGORITHM = "pbkdf2_sha256"
-PASSWORD_ITERATIONS = 390_000
+HASH_ALGORITHM_LABEL = "pbkdf2_sha256"
+HASH_ITERATIONS = 390_000
 SESSION_COOKIE_NAME = "happy_post_session"
 SESSION_TOKEN_BYTES = 32
 
@@ -12,12 +12,12 @@ SESSION_TOKEN_BYTES = 32
 def hash_password(password: str) -> str:
     salt = os.urandom(16)
     digest = hashlib.pbkdf2_hmac(
-        "sha256", password.encode("utf-8"), salt, PASSWORD_ITERATIONS
+        "sha256", password.encode("utf-8"), salt, HASH_ITERATIONS
     )
     return "$".join(
         [
-            PASSWORD_ALGORITHM,
-            str(PASSWORD_ITERATIONS),
+            HASH_ALGORITHM_LABEL,
+            str(HASH_ITERATIONS),
             base64.urlsafe_b64encode(salt).decode("ascii"),
             base64.urlsafe_b64encode(digest).decode("ascii"),
         ]
@@ -27,7 +27,7 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, stored_hash: str) -> bool:
     try:
         algorithm, iterations_text, salt_text, digest_text = stored_hash.split("$", 3)
-        if algorithm != PASSWORD_ALGORITHM:
+        if algorithm != HASH_ALGORITHM_LABEL:
             return False
         iterations = int(iterations_text)
         salt = base64.urlsafe_b64decode(salt_text.encode("ascii"))

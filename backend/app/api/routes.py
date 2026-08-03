@@ -18,6 +18,7 @@ from app.security import (
 from app.settings import Settings
 
 router = APIRouter()
+SIGN_IN_REQUIRED_DETAIL = "Sign in required"
 
 
 def health_response(request: Request) -> dict[str, str]:
@@ -60,13 +61,19 @@ def current_user(
 ) -> CurrentUser:
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=SIGN_IN_REQUIRED_DETAIL
+        )
     user_id = session_repository.get_user_id(token)
     if user_id is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=SIGN_IN_REQUIRED_DETAIL
+        )
     user = user_repository.get_by_id(user_id)
     if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=SIGN_IN_REQUIRED_DETAIL
+        )
     return user
 
 
@@ -105,7 +112,7 @@ def set_session_cookie(
     )
 
 
-@router.post("/api/auth/signup", response_model=CurrentUser, status_code=status.HTTP_201_CREATED)
+@router.post("/api/auth/signup", status_code=status.HTTP_201_CREATED)
 def signup(
     payload: AuthCredentials,
     response: Response,
@@ -123,7 +130,7 @@ def signup(
     return user
 
 
-@router.post("/api/auth/signin", response_model=CurrentUser)
+@router.post("/api/auth/signin")
 def signin(
     payload: AuthCredentials,
     response: Response,
@@ -155,12 +162,12 @@ def signout(
     return response
 
 
-@router.get("/api/auth/me", response_model=CurrentUser)
+@router.get("/api/auth/me")
 def me(user: CurrentUserDependency) -> CurrentUser:
     return user
 
 
-@router.put("/api/entries/today", response_model=DailyEntry, status_code=status.HTTP_200_OK)
+@router.put("/api/entries/today", status_code=status.HTTP_200_OK)
 def save_today_entry(
     payload: SaveDailyEntry,
     repository: EntryRepositoryDependency,
@@ -171,7 +178,7 @@ def save_today_entry(
     return repository.save(user.id, current_entry_date(settings), payload)
 
 
-@router.get("/api/entries/today", response_model=DailyEntry)
+@router.get("/api/entries/today")
 def get_today_entry(
     repository: EntryRepositoryDependency, request: Request, user: CurrentUserDependency
 ) -> DailyEntry:
@@ -182,7 +189,7 @@ def get_today_entry(
     return entry
 
 
-@router.get("/api/entries", response_model=list[DailyEntry])
+@router.get("/api/entries")
 def list_entries(
     month: str,
     repository: EntryRepositoryDependency,
@@ -204,7 +211,7 @@ def list_entries(
     return repository.list_month(user.id, year, month_number)
 
 
-@router.get("/api/entries/{entry_date}", response_model=DailyEntry)
+@router.get("/api/entries/{entry_date}")
 def get_entry(
     entry_date: str,
     repository: EntryRepositoryDependency,

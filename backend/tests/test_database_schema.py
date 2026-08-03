@@ -9,7 +9,7 @@ from app.db.models import (
 def test_users_table_has_required_columns() -> None:
     columns = users_table.c
 
-    assert {"id", "email", "password_hash", "created_at", "updated_at"} == set(columns.keys())
+    assert set(columns.keys()) == {"id", "email", "password_hash", "created_at", "updated_at"}
     assert columns.id.primary_key
     assert not columns.email.nullable
     assert not columns.password_hash.nullable
@@ -22,9 +22,13 @@ def test_users_table_has_required_columns() -> None:
 def test_user_sessions_table_has_required_columns() -> None:
     columns = user_sessions_table.c
 
-    assert {"id", "user_id", "session_token_hash", "expires_at", "created_at"} == set(
-        columns.keys()
-    )
+    assert set(columns.keys()) == {
+        "id",
+        "user_id",
+        "session_token_hash",
+        "expires_at",
+        "created_at",
+    }
     assert columns.id.primary_key
     assert not columns.user_id.nullable
     assert not columns.session_token_hash.nullable
@@ -37,14 +41,14 @@ def test_user_sessions_table_has_required_columns() -> None:
 def test_daily_entries_table_has_required_columns() -> None:
     columns = daily_entries_table.c
 
-    assert {
+    assert set(columns.keys()) == {
         "id",
         "user_id",
         "entry_date",
         "encouragement_score",
         "created_at",
         "updated_at",
-    } == set(columns.keys())
+    }
     assert columns.id.primary_key
     assert not columns.user_id.nullable
     assert not columns.entry_date.nullable
@@ -58,7 +62,7 @@ def test_daily_entries_table_has_required_columns() -> None:
 def test_daily_entry_items_table_has_required_columns() -> None:
     columns = daily_entry_items_table.c
 
-    assert {"id", "entry_id", "item_no", "content", "created_at"} == set(columns.keys())
+    assert set(columns.keys()) == {"id", "entry_id", "item_no", "content", "created_at"}
     assert columns.id.primary_key
     assert not columns.entry_id.nullable
     assert not columns.item_no.nullable
