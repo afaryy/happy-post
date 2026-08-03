@@ -1,0 +1,82 @@
+name: Roll back ECS service
+description: Restore one Happy Post ECS service to its immediately preceding known-good task definition.
+
+inputs:
+  ecs_cluster:
+    description: ECS cluster name.
+    required: true
+  component:
+    description: Component being rolled back.
+    required: true
+  service:
+    description: ECS service name.
+    required: true
+  family:
+    description: ECS task-definition family.
+    required: true
+  container:
+    description: ECS container name.
+    required: true
+  target_group:
+    description: ALB target group name.
+    required: true
+  smoke_url:
+    description: Public smoke-test URL.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Restore immediately preceding known-good revision
+      shell: bash
+      env:
+        ECS_CLUSTER: ${{ inputs.ecs_cluster }}
+        COMPONENT: ${{ inputs.component }}
+        SERVICE: ${{ inputs.service }}
+        FAMILY: ${{ inputs.family }}
+        CONTAINER: ${{ inputs.container }}
+        TARGET_GROUP_NAME: ${{ inputs.target_group }}
+        SMOKE_URL: ${{ inputs.smoke_url }}
+      run: |
+        service_details="$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$SERVICE" --output json)"
+        test "$(jq -r '.services | length' <<< "$service_details")" = "1"
+        test "$(jq -r '.services[0].status' <<< "$service_details")" = "ACTIVE"
+        current_task_definition="$(jq -r '.services[0].taskDefinition' <<< "$service_details")"
+        [[ "$current_task_definition" == *":task-definition/$FAMILY:"* ]]
+        current_revision="${current_task_definition##*:}"
+        [[ "$current_revision" =~ ^[0-9]+$ ]]
+
+        aws ecs list-task-definitions --family-prefix "$FAMILY" --status ACTIVE --sort DESC --query 'taskDefinitionArns' --output json > task-definitions.json
+        rollback_task_definition=""
+        while IFS= read -r task_definition; do
+          revision="${task_definition##*:}"
+          (( revision < current_revision )) || continue
+          status="$(aws ecs list-tags-for-resource --resource-arn "$task_definition" --query "tags[?key=='HappyPostDeploymentStatus'].value | [0]" --output text)"
+          if [[ "$status" == "known-good" ]]; then
+            rollback_task_definition="$task_definition"
+            break
+          fi
+        done < <(jq -r '.[]' task-definitions.json)
+        test -n "$rollback_task_definition"
+
+        aws ecs describe-task-definition --task-definition "$rollback_task_definition" --output json > rollback-task-definition.json
+        test "$(jq -r '.taskDefinition.family' rollback-task-definition.json)" = "$FAMILY"
+        jq -e --arg container "$CONTAINER" '[.taskDefinition.containerDefinitions[] | select(.name == $container)] | length == 1' rollback-task-definition.json > /dev/null
+
+        aws ecs update-service --cluster "$ECS_CLUSTER" --service "$SERVICE" --task-definition "$rollback_task_definition" > /dev/null
+        aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$SERVICE"
+        deployed_task_definition="$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$SERVICE" --query 'services[0].taskDefinition' --output text)"
+        test "$deployed_task_definition" = "$rollback_task_definition"
+
+        target_group_arn="$(aws elbv2 describe-target-groups --names "$TARGET_GROUP_NAME" --query 'TargetGroups[0].TargetGroupArn' --output text)"
+        target_health="$(aws elbv2 describe-target-health --target-group-arn "$target_group_arn" --output json)"
+        jq -e '[.TargetHealthDescriptions[].TargetHealth.State] | any(. == "healthy")' <<< "$target_health" > /dev/null
+        curl --fail --silent --show-error --max-time 20 "$SMOKE_URL" > /dev/null
+
+        {
+          echo "## ECS rollback succeeded"
+          echo "- Component: $COMPONENT"
+          echo "- Previous task definition: $current_task_definition"
+          echo "- Restored task definition: $rollback_task_definition"
+          echo "- Smoke test: $SMOKE_URL"
+        } >> "$GITHUB_STEP_SUMMARY"

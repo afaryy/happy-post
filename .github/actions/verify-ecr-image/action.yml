@@ -1,0 +1,27 @@
+name: Verify ECR image
+description: Verify that an immutable image digest exists in ECR with its matching source-commit tag.
+
+inputs:
+  repository:
+    description: ECR repository name.
+    required: true
+  image_digest:
+    description: Expected SHA-256 image digest.
+    required: true
+  source_commit:
+    description: Full lowercase source commit SHA expected in the sha-<commit> tag.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Verify image digest and source tag
+      shell: bash
+      env:
+        REPOSITORY: ${{ inputs.repository }}
+        IMAGE_DIGEST: ${{ inputs.image_digest }}
+        SOURCE_COMMIT: ${{ inputs.source_commit }}
+      run: |
+        image_details="$(aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageDigest="$IMAGE_DIGEST" --output json)"
+        test "$(jq -r '.imageDetails[0].imageDigest' <<< "$image_details")" = "$IMAGE_DIGEST"
+        jq -e --arg tag "sha-$SOURCE_COMMIT" '.imageDetails[0].imageTags | index($tag) != null' <<< "$image_details" > /dev/null

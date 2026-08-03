@@ -1,0 +1,73 @@
+name: Select image components
+description: Select backend/frontend images to publish from a push or manual dispatch event.
+
+inputs:
+  event_name:
+    description: GitHub event name.
+    required: true
+  requested_component:
+    description: Manually requested component for workflow_dispatch.
+    required: false
+    default: ""
+  base_sha:
+    description: Push event base SHA.
+    required: true
+  head_sha:
+    description: Push event head SHA.
+    required: true
+
+outputs:
+  backend:
+    description: Whether to publish the backend image.
+    value: ${{ steps.select.outputs.backend }}
+  frontend:
+    description: Whether to publish the frontend image.
+    value: ${{ steps.select.outputs.frontend }}
+
+runs:
+  using: composite
+  steps:
+    - name: Select changed components
+      id: select
+      shell: bash
+      env:
+        EVENT_NAME: ${{ inputs.event_name }}
+        REQUESTED_COMPONENT: ${{ inputs.requested_component }}
+        BASE_SHA: ${{ inputs.base_sha }}
+        HEAD_SHA: ${{ inputs.head_sha }}
+      run: |
+        backend=false
+        frontend=false
+
+        case "$EVENT_NAME" in
+          workflow_dispatch)
+            test "$GITHUB_REF" = "refs/heads/main"
+            case "$REQUESTED_COMPONENT" in
+              backend) backend=true ;;
+              frontend) frontend=true ;;
+              all) backend=true; frontend=true ;;
+              *) echo "Unsupported component: $REQUESTED_COMPONENT"; exit 1 ;;
+            esac
+            ;;
+          push)
+            if [[ "$BASE_SHA" =~ ^0+$ ]] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+              changed_files="$(git diff-tree --no-commit-id --name-only -r "$HEAD_SHA")"
+            else
+              changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+            fi
+            if grep -Eq '^backend/' <<< "$changed_files"; then
+              backend=true
+            fi
+            if grep -Eq '^frontend/' <<< "$changed_files"; then
+              frontend=true
+            fi
+            ;;
+          *)
+            echo "Unsupported event: $EVENT_NAME"
+            exit 1
+            ;;
+        esac
+
+        echo "backend=$backend" >> "$GITHUB_OUTPUT"
+        echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+        echo "Selected components: backend=$backend frontend=$frontend"

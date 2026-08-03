@@ -1,0 +1,68 @@
+name: Resolve ECS service
+description: Resolve Happy Post ECS service metadata from a selected component.
+
+inputs:
+  component:
+    description: Component to resolve.
+    required: true
+
+outputs:
+  repository:
+    description: ECR repository name.
+    value: ${{ steps.resolve.outputs.repository }}
+  service:
+    description: ECS service name.
+    value: ${{ steps.resolve.outputs.service }}
+  family:
+    description: ECS task-definition family.
+    value: ${{ steps.resolve.outputs.family }}
+  container:
+    description: ECS container name.
+    value: ${{ steps.resolve.outputs.container }}
+  target_group:
+    description: ALB target group name.
+    value: ${{ steps.resolve.outputs.target_group }}
+  smoke_url:
+    description: Public smoke-test URL.
+    value: ${{ steps.resolve.outputs.smoke_url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve service metadata
+      id: resolve
+      shell: bash
+      env:
+        COMPONENT: ${{ inputs.component }}
+      run: |
+        case "$COMPONENT" in
+          backend)
+            repository=happy-post-sandbox-backend
+            service=happy-post-sandbox-backend
+            family=happy-post-sandbox-backend
+            container=backend
+            target_group=happy-post-sandbox-backend
+            smoke_url=https://happy-post.asksafe.ai/backend/healthz
+            ;;
+          frontend)
+            repository=happy-post-sandbox-frontend
+            service=happy-post-sandbox-frontend
+            family=happy-post-sandbox-frontend
+            container=frontend
+            target_group=happy-post-sandbox-frontend
+            smoke_url=https://happy-post.asksafe.ai/healthz
+            ;;
+          *)
+            echo "Unsupported component: $COMPONENT"
+            exit 1
+            ;;
+        esac
+
+        {
+          echo "repository=$repository"
+          echo "service=$service"
+          echo "family=$family"
+          echo "container=$container"
+          echo "target_group=$target_group"
+          echo "smoke_url=$smoke_url"
+        } >> "$GITHUB_OUTPUT"
