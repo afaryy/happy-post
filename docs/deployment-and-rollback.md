@@ -11,13 +11,14 @@ docker compose ps
 docker compose down --remove-orphans
 ```
 
-Compose runs only `backend` and `frontend`, with loopback bindings
-`127.0.0.1:8000` and `127.0.0.1:3000` by default. If another local process owns
-port 8000, use `HAPPY_POST_BACKEND_HOST_PORT=18000` before each command; this
-changes only the backend's host-side port. The frontend remains at
+Compose runs `db`, `backend-migrate`, `backend`, and `frontend`, with loopback
+bindings `127.0.0.1:5432`, `127.0.0.1:8000`, and `127.0.0.1:3000` by default.
+If another local process owns port 8000 or 5432, use
+`HAPPY_POST_BACKEND_HOST_PORT=18000` or `HAPPY_POST_DB_HOST_PORT=15432` before
+each command; these change only host-side ports. The frontend remains at
 `http://127.0.0.1:3000`, uses its container-local `/healthz`, and proxies
-`/api/posts` internally to `http://backend:8000`. Stop the local stack with the
-same override when one was used to start it.
+`/api/entries/*` internally to `http://backend:8000`. Stop the local stack with
+the same overrides when they were used to start it.
 
 ## Deployment model
 
@@ -37,7 +38,7 @@ The bootstrap state bucket and DynamoDB lock table are not workload-destroy targ
 
 Both frontend and backend have now been deployed through the controlled ECS deployment workflow. Backend smoke tests passed at `/backend/healthz` and `/backend/version`; frontend smoke tests passed at `/healthz` and `/version`. The backend version endpoint reports the deployed immutable image digest. The frontend version endpoint currently reports the application version `0.1.0`.
 
-The private RDS PostgreSQL data stack is provisioned separately from application services. Database migrations must be backward-compatible, run before the backend version that requires them, and have a documented restore or compensating-migration approach before deployment. The active Free Plan rejected the former seven-day retention objective and permits the deployed private RDS configuration with one-day PITR. It must not upgrade the account plan automatically. A future paid environment must restore a seven-day-or-greater recovery objective.
+The private RDS PostgreSQL data stack is provisioned separately from application services. The Three Happy Things MVP keeps append-only migration history: `0001_create_posts` remains as the original temporary schema and `0002_create_users_daily_entries` replaces `posts` with `users`, `user_sessions`, `daily_entries`, and `daily_entry_items`. Each signed-in user owns their own daily history, and one day can hold three or more happy items. Database migrations must be backward-compatible, run before the backend version that requires them, and have a documented restore or compensating-migration approach before deployment. The active Free Plan rejected the former seven-day retention objective and permits the deployed private RDS configuration with one-day PITR. It must not upgrade the account plan automatically. A future paid environment must restore a seven-day-or-greater recovery objective.
 
 ## Verification
 

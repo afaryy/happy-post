@@ -20,17 +20,39 @@ CloudFormation owns the private versioned S3 state bucket and the DynamoDB lock 
 
 The platform root defines separate frontend and backend task roles, execution roles, private image repositories, and component log groups. Both task roles have no identity-policy AWS API permissions. The frontend execution role can pull only its image and publish frontend logs; the backend execution role can pull only its image, publish backend logs, and—only in the backend-service root—read the named database secret during ECS task launch. Tasks remain private; only the ALB is internet-facing. The ALB security group permits TCP 80 only to redirect to HTTPS and HTTPS 443 for application traffic; task security groups accept application traffic only from the ALB security group. RDS PostgreSQL is private, has no public route or public IP, and accepts TCP 5432 only from the backend security group.
 
-### Local P3 container boundary
+### Application authentication and data privacy
 
-The local Compose stack has exactly two services, `backend` and `frontend`; it
-does not run PostgreSQL. Backend and frontend images use non-root runtime users.
+The P6 application adds MVP email/password authentication so each user sees only
+their own bedtime happy-things history. Passwords are stored only as salted
+PBKDF2-SHA256 hashes; plaintext passwords are never returned by the API or stored
+in source control. The backend sets an HttpOnly, SameSite=Lax cookie containing
+an opaque random session token after sign-up or sign-in. PostgreSQL stores only a
+SHA-256 hash of that token in `user_sessions`, and all `/api/entries/*` routes
+resolve the current user through an active database-backed session. This keeps
+sessions valid across backend task restarts and multiple ECS tasks without a
+shared signing secret. Health and version routes remain unauthenticated for
+load-balancer and container health checks.
+
+MVP auth does not implement rate limiting, account lockout, password reset, or
+email verification. These are accepted sandbox limitations. This is an
+application-level sandbox MVP control, not a production identity platform.
+Before serving real users, identity should move to a managed provider such as
+Amazon Cognito, Auth0, or Clerk with email verification, password reset, stronger
+session governance, abuse protection, and operational account-recovery controls.
+
+### Local P3/P6 container boundary
+
+The local Compose stack runs `db`, `backend-migrate`, `backend`, and `frontend`
+for PostgreSQL-backed validation. Backend and frontend images use non-root runtime users.
 Their published ports are loopback-only: backend defaults to `127.0.0.1:8000` and
-frontend to `127.0.0.1:3000`. `HAPPY_POST_BACKEND_HOST_PORT` is a non-sensitive
-temporary host-port override (for example, `18000`); it does not change the
-container port or the internal frontend-to-backend route `http://backend:8000`.
-Dockerfiles, Compose, and their build contexts contain no credentials or secret
-values. This local-container work does not implement or alter ECS, ALB, OIDC, or
-RDS controls.
+frontend to `127.0.0.1:3000`; local PostgreSQL defaults to loopback
+`127.0.0.1:5432`. `HAPPY_POST_BACKEND_HOST_PORT` and `HAPPY_POST_DB_HOST_PORT`
+are non-sensitive temporary host-port overrides; they do not change container
+ports or internal routes. Dockerfiles, Compose, and their build contexts contain
+no AWS credentials or secret values. Local database credentials are
+development-only defaults and must not be reused for AWS or real users. This
+local-container work does not implement or alter ECS, ALB, OIDC, or RDS
+infrastructure controls.
 
 ## Secrets and configuration
 

@@ -1,1 +1,1 @@
-"""Database schema metadata for future PostgreSQL persistence."""
+"""Database schema metadata for PostgreSQL persistence."""

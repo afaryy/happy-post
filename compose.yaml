@@ -1,11 +1,49 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: happy_post
+      POSTGRES_PASSWORD: happy_post_local
+      POSTGRES_USER: happy_post
+    ports:
+      - "127.0.0.1:${HAPPY_POST_DB_HOST_PORT:-5432}:5432"
+    restart: "no"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "pg_isready -U happy_post -d happy_post"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    volumes:
+      - happy-post-db:/var/lib/postgresql/data
+
+  backend-migrate:
+    image: happy-post-backend:local
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      APP_TIMEZONE: Australia/Melbourne
+      DATABASE_URL: postgresql+psycopg://happy_post:happy_post_local@db:5432/happy_post
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
   backend:
     image: happy-post-backend:local
     build: ./backend
+    environment:
+      APP_TIMEZONE: Australia/Melbourne
+      DATABASE_URL: postgresql+psycopg://happy_post:happy_post_local@db:5432/happy_post
     ports:
       - "127.0.0.1:${HAPPY_POST_BACKEND_HOST_PORT:-8000}:8000"
     restart: "no"
     init: true
+    depends_on:
+      backend-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         - CMD
@@ -40,3 +78,6 @@ services:
       timeout: 3s
       retries: 10
       start_period: 5s
+
+volumes:
+  happy-post-db:

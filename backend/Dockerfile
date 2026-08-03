@@ -23,6 +23,8 @@ RUN addgroup --system app \
     && adduser --system --ingroup app app
 
 COPY --from=builder --chown=app:app /opt/venv /opt/venv
+COPY --chown=app:app alembic.ini ./
+COPY --chown=app:app alembic ./alembic
 COPY --chown=app:app app ./app
 
 USER app

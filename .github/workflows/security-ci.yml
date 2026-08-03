@@ -100,6 +100,30 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Python and uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Generate backend coverage
+        run: uv run --group dev pytest --cov=app --cov-report=xml:coverage.xml
+        working-directory: backend
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Generate frontend coverage
+        run: |
+          npm ci
+          npm run test:coverage
+        working-directory: frontend
+
       - name: Scan the combined application project
         uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2 # v7
         env:
@@ -112,5 +136,7 @@ jobs:
             -Dsonar.sources=backend/app,frontend/app
             -Dsonar.tests=backend/tests,frontend/tests
             -Dsonar.exclusions=**/node_modules/**,**/.next/**,**/.venv/**
+            -Dsonar.python.coverage.reportPaths=backend/coverage.xml
+            -Dsonar.javascript.lcov.reportPaths=frontend/coverage/lcov.info
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=300

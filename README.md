@@ -4,10 +4,10 @@ Happy Post is a cloud-native application with a Next.js frontend and FastAPI bac
 
 ## Current status
 
-The MVP application source is present: a FastAPI posts API and a Next.js post board. P3 local containerisation is complete: the two services run together through Docker Compose. P4's Terraform network, private RDS PostgreSQL data, ECR/ECS platform, edge, and both digest-pinned ECS service roots are applied. Terraform, application, security, image-publication, initial-service bootstrap, post-bootstrap deployment, and rollback workflows are implemented. The deployed frontend and backend services have been updated through the controlled ECS deployment workflow and their public HTTPS smoke tests pass.
+The MVP application source is present: a FastAPI daily-entry API and a warm Next.js bedtime page where each signed-in user records at least three small happy things, with optional extra happy items when they have more to save. Local containerisation runs frontend, backend, and local PostgreSQL together through Docker Compose. P4's Terraform network, private RDS PostgreSQL data, ECR/ECS platform, edge, and both digest-pinned ECS service roots are applied. Terraform, application, security, image-publication, initial-service bootstrap, post-bootstrap deployment, and rollback workflows are implemented. The deployed frontend and backend services have been updated through the controlled ECS deployment workflow and their public HTTPS smoke tests pass.
 
-- [Backend MVP](backend/README.md): posts API, operational endpoints, PostgreSQL-ready schema and migration, tests, linting, and local configuration example.
-- [Frontend MVP](frontend/README.md): post board, backend API integration, operational endpoints, tests, linting, and local configuration example.
+- [Backend MVP](backend/README.md): email/password MVP auth, user-scoped daily-entry API, operational endpoints, PostgreSQL persistence, Alembic migration, tests, linting, and local configuration example.
+- [Frontend MVP](frontend/README.md): sign-in/sign-up UI, three-small-happy-things bedtime UI, private history calendar, backend API integration, operational endpoints, tests, linting, and local configuration example.
 - [Terraform foundation](infra/terraform/README.md): version constraints, remote state, and applied sandbox network, RDS data, ECR/ECS platform, edge, and service roots.
 - [Terraform workflow controls](.github/workflows/terraform-plan.yml): backend-free PR validation plus manual target-selected plan, apply, and destroy controls.
 - [Application CI](.github/workflows/application-ci.yml): changed-component backend and frontend linting, unit tests, and frontend build checks.
@@ -22,8 +22,8 @@ The controlled ECS deployment workflow has successfully deployed both services. 
 
 ## Run locally with containers
 
-Docker Compose defines exactly two local services: `backend` and `frontend`. It does
-not start PostgreSQL. From the repository root, run:
+Docker Compose defines `db`, `backend-migrate`, `backend`, and `frontend` for a
+local PostgreSQL-backed run. From the repository root, run:
 
 ```bash
 docker compose up --build -d
@@ -31,21 +31,23 @@ docker compose ps
 docker compose down --remove-orphans
 ```
 
-The frontend is available at `http://127.0.0.1:3000`; its relative `/api/posts`
-request is forwarded internally to `http://backend:8000`. The backend is available
-at `http://127.0.0.1:8000` by default. If port 8000 is temporarily in use, change
-only the non-sensitive host-side binding:
+The frontend is available at `http://127.0.0.1:3000`; its relative `/api/entries/*`
+requests are forwarded internally to `http://backend:8000`. The backend is available
+at `http://127.0.0.1:8000` by default. Local PostgreSQL binds to
+`127.0.0.1:5432` by default. If port 8000 or 5432 is temporarily in use, change
+only the non-sensitive host-side bindings:
 
 ```bash
-HAPPY_POST_BACKEND_HOST_PORT=18000 docker compose up --build -d
-HAPPY_POST_BACKEND_HOST_PORT=18000 docker compose ps
-HAPPY_POST_BACKEND_HOST_PORT=18000 docker compose down --remove-orphans
+HAPPY_POST_BACKEND_HOST_PORT=18000 HAPPY_POST_DB_HOST_PORT=15432 docker compose up --build -d
+HAPPY_POST_BACKEND_HOST_PORT=18000 HAPPY_POST_DB_HOST_PORT=15432 docker compose ps
+HAPPY_POST_BACKEND_HOST_PORT=18000 HAPPY_POST_DB_HOST_PORT=15432 docker compose down --remove-orphans
 ```
 
-This keeps the backend container and internal frontend routing on `backend:8000`.
-Both host ports bind only to loopback. The images run as non-root users and contain
-no secrets. This local P3 work does not change the planned AWS ECS, ALB, OIDC, or
-RDS architecture.
+This keeps internal frontend routing on `backend:8000` and internal database
+access on `db:5432`. Host ports bind only to loopback. The images run as non-root
+users and contain no AWS secrets. Local Compose database credentials and session
+secret are development-only defaults and must not be reused for AWS or real
+users.
 
 ## Canonical baseline
 
