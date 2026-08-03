@@ -5,17 +5,21 @@ Happy Post is a single-environment AWS sandbox with two independently deployable
 ## High-Level Solution Architecture
 
 ~~~mermaid
-flowchart LR
-    users[Internet users] --> cloudflare[Cloudflare DNS<br/>asksafe.ai]
-    cloudflare -->|NS delegation| route53[Route 53<br/>happy-post.asksafe.ai]
-    route53 -->|A alias resolution| alb[Internet-facing ALB<br/>HTTPS :443]
+flowchart TB
+    users[Internet users] --> cloudflare[Cloudflare DNS<br/>asksafe.ai parent zone]
+    cloudflare -->|delegates happy-post.asksafe.ai| route53[Route 53 public hosted zone]
+    route53 -->|A/AAAA alias resolution| alb[Internet-facing ALB<br/>HTTPS :443]
     acm[ACM public certificate] -. "TLS certificate" .-> alb
-    alb -->|/*| frontend[Frontend ECS Fargate<br/>Next.js]
-    alb -->|/api/*| backend[Backend ECS Fargate<br/>FastAPI]
-    backend -->|PostgreSQL 5432| rds[Private RDS PostgreSQL]
-    frontend -. logs .-> logs[CloudWatch Logs]
-    backend -. logs .-> logs
+    alb -->|default /* and /frontend/*| frontend_tg[Frontend target group]
+    alb -->|higher-priority /api/* and /backend/*| backend_tg[Backend target group]
+    frontend_tg --> frontend[Frontend ECS Fargate service<br/>Next.js]
+    backend_tg --> backend[Backend ECS Fargate service<br/>FastAPI]
+    backend -->|PostgreSQL 5432 only| rds[Private RDS PostgreSQL]
+    frontend --> frontend_logs[CloudWatch Logs]
+    backend --> backend_logs[CloudWatch Logs]
 ~~~
+
+Source: [solution-architecture.mmd](diagrams/solution-architecture.mmd).
 
 Cloudflare remains the parent DNS provider for asksafe.ai and delegates happy-post.asksafe.ai to Route 53. Route 53 resolves the application domain to the public ALB; ACM terminates HTTPS at the ALB.
 
@@ -86,6 +90,54 @@ flowchart TB
 The sandbox environment is an OIDC/configuration boundary, not an approval gate: it has no required reviewers. Pull requests run backend-free Terraform validation only and never receive AWS credentials. Terraform plan, apply, and destroy are workflow-dispatch-only operations: each resolves and logs the immutable `main` SHA and accepts only a fixed canonical-root target. Plan uses the read-only plan role; apply creates a fresh plan for that checkout and applies that exact plan through the separate apply role. Initial service bootstrap verifies an ECR digest then applies only the selected service root. Subsequent deployment and rollback workflows use the distinct ECS deployment role to update only one existing service. Merge never applies Terraform. Detailed sources are [CI/CD diagram](diagrams/cicd.mmd) and [Terraform diagram](diagrams/terraform.mmd).
 
 ## Terraform and Deployment Ownership
+
+~~~mermaid
+flowchart TB
+    oidc[Existing GitHub OIDC provider] --> bootstrap[CloudFormation bootstrap]
+    bootstrap --> state[S3 Terraform state bucket<br/>private and versioned]
+    bootstrap --> lock[DynamoDB Terraform state lock table]
+    bootstrap --> roles[Separate GitHub OIDC roles<br/>sandbox plan; sandbox apply/destroy; sandbox ECS deploy]
+
+    state --> root[Terraform root configuration]
+    lock --> root
+    roles --> root
+    root --> foundations[Foundations]
+    root --> workloads[Workload stacks]
+
+    subgraph foundations
+        network[network<br/>VPC, subnets, routes, IGW, NAT]
+        identity[security-identity<br/>IAM, security groups, Secrets Manager]
+        platform[platform<br/>ECR, ECS cluster, ALB]
+        scaling[ECS service scaling<br/>CPU target tracking: 1–2 tasks, 65%]
+        edge[edge<br/>Route 53 records and ACM]
+    end
+
+    subgraph workloads
+        data[data<br/>RDS PostgreSQL and backups]
+        backend[backend-service<br/>task definition and ECS service]
+        frontend[frontend-service<br/>task definition and ECS service]
+        observability[observability<br/>CloudWatch log groups and alarms]
+    end
+
+    network --> identity
+    identity --> platform
+    platform --> edge
+    platform --> scaling
+    network --> data
+    identity --> data
+    platform --> backend
+    scaling --> backend
+    edge --> backend
+    data --> backend
+    platform --> frontend
+    scaling --> frontend
+    edge --> frontend
+    edge --> observability
+    backend --> observability
+    frontend --> observability
+~~~
+
+Source: [terraform.mmd](diagrams/terraform.mmd).
 
 Terraform owns foundations and stable configuration: networking, private RDS PostgreSQL and database subnets/security group, Secrets Manager database credentials, ECR, ECS cluster, runtime IAM roles, logging, ALB/listeners, Route 53 and ACM records, ECS services, and initial task definitions. The mandatory data stack has its own state and lifecycle.
 

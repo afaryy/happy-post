@@ -2,6 +2,12 @@
 
 Happy Post is a cloud-native application with a Next.js frontend and FastAPI backend. The delivery architecture uses two independently deployable container images and ECS Fargate services.
 
+## Start here
+
+- [Architecture](docs/architecture.md): primary solution architecture, AWS runtime, delivery/control plane, Terraform ownership, and deployed-state summary.
+- [Live sandbox application](https://happy-post.asksafe.ai): deployed Happy Post MVP.
+- [Operations](docs/operations.md): smoke tests, CloudWatch logs, database migration, restart persistence, and recovery procedures.
+
 ## Current status
 
 The MVP application source is present: a FastAPI daily-entry API and a warm Next.js bedtime page where each signed-in user records at least three small happy things, with optional extra happy items when they have more to save. Local containerisation runs frontend, backend, and local PostgreSQL together through Docker Compose. P4's Terraform network, private RDS PostgreSQL data, ECR/ECS platform, edge, and both digest-pinned ECS service roots are applied. Terraform, application, security, image-publication, initial-service bootstrap, post-bootstrap deployment, and rollback workflows are implemented. The deployed frontend and backend services have been updated through the controlled ECS deployment workflow and their public HTTPS smoke tests pass.
@@ -19,9 +25,17 @@ The MVP application source is present: a FastAPI daily-entry API and a warm Next
 
 ## Deployed service verification
 
+| Check | URL |
+| --- | --- |
+| Application | [https://happy-post.asksafe.ai](https://happy-post.asksafe.ai) |
+| Frontend health check | [https://happy-post.asksafe.ai/healthz](https://happy-post.asksafe.ai/healthz) |
+| Frontend version check | [https://happy-post.asksafe.ai/version](https://happy-post.asksafe.ai/version) |
+| Backend health check | [https://happy-post.asksafe.ai/backend/healthz](https://happy-post.asksafe.ai/backend/healthz) |
+| Backend version check | [https://happy-post.asksafe.ai/backend/version](https://happy-post.asksafe.ai/backend/version) |
+
 The controlled ECS deployment workflow has successfully deployed both services. Backend smoke tests passed at `/backend/healthz` and `/backend/version`; the backend version response reports the deployed immutable image digest. Frontend smoke tests passed at `/healthz` and `/version`; the frontend version response currently reports the application version `0.1.0`. The rollback workflow is available for component-scoped recovery and should be rehearsed only if time permits before assessment submission.
 
-Database-changing releases require one extra controlled step before the backend deployment. After publishing the backend image from `main`, run the manual database migration workflow with the same backend `image_digest` and `source_commit`, confirm `migrate-backend`, verify success, and only then run the backend ECS deployment workflow with that digest. After this workflow is merged, update the `happy-post-sandbox-bootstrap` CloudFormation stack before running it so the deployment role has the scoped `ecs:RunTask` permission for migration tasks.
+Database-changing releases require one extra controlled step before the backend deployment. After publishing the backend image from `main`, run the manual database migration workflow with the same backend `image_digest` and `source_commit`, confirm `migrate-backend`, verify success, and only then run the backend ECS deployment workflow with that digest. The migration workflow and required bootstrap permissions are now in place; keep future database-changing releases on the same migration-before-backend-deploy sequence.
 
 ## Run locally with containers
 

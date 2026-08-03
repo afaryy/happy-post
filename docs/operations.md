@@ -28,6 +28,14 @@ The latest controlled ECS deployment verification passed:
 
 The rollback workflow is available for component-scoped recovery. Rehearse rollback only if time permits before assessment submission; otherwise keep it as a documented follow-up because the deployment and public smoke path is already validated.
 
+## CloudWatch logging
+
+- The applied platform foundation created separate CloudWatch log groups for the two ECS workloads: `/ecs/happy-post/backend` and `/ecs/happy-post/frontend`.
+- Both log groups use fourteen-day sandbox retention.
+- Backend and frontend task definitions use the `awslogs` driver and publish only to their matching log group.
+- The backend execution role can publish backend logs only; the frontend execution role can publish frontend logs only.
+- The ECS cluster has Container Insights enabled for sandbox runtime visibility.
+
 ## Database operations
 
 - RDS PostgreSQL remains private and is reachable only from the backend service.
@@ -39,10 +47,10 @@ The rollback workflow is available for component-scoped recovery. Rehearse rollb
 - Deletion protection is disabled for sandbox. Intentional destroy creates a uniquely named final DB snapshot, does not retain automated backups, and requires the snapshot owner to review and delete it within seven days unless retention is explicitly approved.
 - The Three Happy Things MVP uses the backend `DATABASE_URL` to persist user-scoped daily entries in PostgreSQL. The frontend never receives database credentials.
 - MVP auth uses an HttpOnly SameSite=Lax cookie containing an opaque random token, while PostgreSQL stores only the token hash in `user_sessions`. Sign-out deletes the current database session. Expired sessions are rejected by the backend. There is no shared session-signing secret to rotate in the MVP design.
-- Restore testing is required before a release and after every database-changing migration. Restore to an isolated temporary private RDS instance, verify availability, approved private connectivity, `SELECT 1`, migration version, and row-count sanity checks for `users`, `user_sessions`, `daily_entries`, and `daily_entry_items`, record evidence, then remove the temporary restore resources.
-- A database change requires a backward-compatible migration plan and either a restore plan or a compensating migration before deployment. For the first P6 release, run the append-only Alembic chain through `0002_create_users_daily_entries`, which replaces the temporary `posts` table with `users`, `user_sessions`, `daily_entries`, and `daily_entry_items`, before deploying the backend image that requires it.
+- Restore testing remains required operational hygiene for database-changing releases. Restore to an isolated temporary private RDS instance, verify availability, approved private connectivity, `SELECT 1`, migration version, and row-count sanity checks for `users`, `user_sessions`, `daily_entries`, and `daily_entry_items`, record evidence, then remove the temporary restore resources. The isolated restore rehearsal was not completed before the P6 migration because of time and cost constraints; it remains a follow-up and must be completed before any further database-changing release.
+- A database change requires a backward-compatible migration plan and either a restore plan or a compensating migration before deployment. The P6 release ran the append-only Alembic chain through `0002_create_users_daily_entries`, which replaces the temporary `posts` table with `users`, `user_sessions`, `daily_entries`, and `daily_entry_items`, before deploying the backend image that requires it.
 - The controlled migration workflow derives its subnet and security-group placement from the active backend ECS service, so the migration task runs in the same private application network path as the backend. It uses the backend execution role for `DATABASE_URL` secret injection and must not print connection strings or secret values.
-- After merging migration-workflow changes, update the `happy-post-sandbox-bootstrap` CloudFormation stack before the first migration run. The deployed ECS deploy role must include scoped `ecs:RunTask` permission for the `happy-post-sandbox-backend-migration` task-definition family.
+- The `happy-post-sandbox-bootstrap` CloudFormation stack has been updated with the scoped ECS migration permissions required by the database migration workflow. The deployed ECS deploy role includes scoped `ecs:RunTask` permission for the `happy-post-sandbox-backend-migration` task-definition family.
 
 ## Terraform state-backend operations
 
