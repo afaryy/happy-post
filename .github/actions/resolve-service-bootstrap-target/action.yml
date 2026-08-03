@@ -1,0 +1,51 @@
+name: Resolve service bootstrap target
+description: Resolve Terraform service root metadata for initial ECS service bootstrap.
+
+inputs:
+  component:
+    description: Component to bootstrap.
+    required: true
+
+outputs:
+  working_directory:
+    description: Terraform root directory.
+    value: ${{ steps.resolve.outputs.working_directory }}
+  repository:
+    description: ECR repository name.
+    value: ${{ steps.resolve.outputs.repository }}
+  variable_name:
+    description: Terraform image digest variable name.
+    value: ${{ steps.resolve.outputs.variable_name }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve service bootstrap metadata
+      id: resolve
+      shell: bash
+      env:
+        COMPONENT: ${{ inputs.component }}
+      run: |
+        case "$COMPONENT" in
+          backend)
+            working_directory=infra/terraform/stacks/backend-service
+            repository=happy-post-sandbox-backend
+            variable_name=backend_image_digest
+            ;;
+          frontend)
+            working_directory=infra/terraform/stacks/frontend-service
+            repository=happy-post-sandbox-frontend
+            variable_name=frontend_image_digest
+            ;;
+          *)
+            echo "Unsupported component: $COMPONENT"
+            exit 1
+            ;;
+        esac
+
+        test -d "$working_directory"
+        {
+          echo "working_directory=$working_directory"
+          echo "repository=$repository"
+          echo "variable_name=$variable_name"
+        } >> "$GITHUB_OUTPUT"

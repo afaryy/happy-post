@@ -1,0 +1,120 @@
+name: Run ECS database migration
+description: Register and run a one-off ECS Fargate task for backend Alembic migrations.
+
+inputs:
+  aws_account_id:
+    description: AWS account ID that owns the ECR repository.
+    required: true
+  aws_region:
+    description: AWS region.
+    required: true
+  ecs_cluster:
+    description: ECS cluster name.
+    required: true
+  backend_service:
+    description: Existing backend ECS service name.
+    required: true
+  backend_repository:
+    description: Backend ECR repository name.
+    required: true
+  backend_container:
+    description: Backend container name in the task definition.
+    required: true
+  migration_family:
+    description: ECS task-definition family to register for migrations.
+    required: true
+  image_digest:
+    description: Verified backend image digest to run.
+    required: true
+  source_commit:
+    description: Source commit associated with the image digest.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Register migration task definition
+      id: register
+      shell: bash
+      env:
+        AWS_ACCOUNT_ID: ${{ inputs.aws_account_id }}
+        AWS_REGION: ${{ inputs.aws_region }}
+        ECS_CLUSTER: ${{ inputs.ecs_cluster }}
+        BACKEND_SERVICE: ${{ inputs.backend_service }}
+        BACKEND_REPOSITORY: ${{ inputs.backend_repository }}
+        BACKEND_CONTAINER: ${{ inputs.backend_container }}
+        MIGRATION_FAMILY: ${{ inputs.migration_family }}
+        IMAGE_DIGEST: ${{ inputs.image_digest }}
+        SOURCE_COMMIT: ${{ inputs.source_commit }}
+      run: |
+        service_details="$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$BACKEND_SERVICE" --output json)"
+        test "$(jq -r '.services | length' <<< "$service_details")" = "1"
+        test "$(jq -r '.services[0].status' <<< "$service_details")" = "ACTIVE"
+        backend_task_definition="$(jq -r '.services[0].taskDefinition' <<< "$service_details")"
+        [[ "$backend_task_definition" == *":task-definition/happy-post-sandbox-backend:"* ]]
+
+        aws ecs describe-task-definition --task-definition "$backend_task_definition" --output json > backend-task-definition.json
+        jq -e --arg container "$BACKEND_CONTAINER" '[.taskDefinition.containerDefinitions[] | select(.name == $container)] | length == 1' backend-task-definition.json > /dev/null
+
+        image_uri="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPOSITORY}@${IMAGE_DIGEST}"
+        jq --arg family "$MIGRATION_FAMILY" --arg container "$BACKEND_CONTAINER" --arg image "$image_uri" --arg version "$IMAGE_DIGEST" '
+          .taskDefinition
+          | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
+          | .family = $family
+          | .containerDefinitions |= map(
+              if .name == $container then
+                .image = $image
+                | .command = ["alembic", "upgrade", "head"]
+                | .environment |= map(if .name == "APP_VERSION" then .value = $version else . end)
+                | del(.healthCheck)
+              else . end
+            )
+        ' backend-task-definition.json > migration-task-definition.json
+
+        migration_task_definition="$(aws ecs register-task-definition \
+          --cli-input-json file://migration-task-definition.json \
+          --tags key=Project,value=happy-post key=Environment,value=sandbox key=Component,value=backend key=Purpose,value=database-migration key=SourceCommit,value="$SOURCE_COMMIT" \
+          --query 'taskDefinition.taskDefinitionArn' \
+          --output text)"
+        [[ "$migration_task_definition" == *":task-definition/$MIGRATION_FAMILY:"* ]]
+        echo "task_definition=$migration_task_definition" >> "$GITHUB_OUTPUT"
+
+    - name: Run migration task and wait for completion
+      shell: bash
+      env:
+        ECS_CLUSTER: ${{ inputs.ecs_cluster }}
+        BACKEND_SERVICE: ${{ inputs.backend_service }}
+        BACKEND_CONTAINER: ${{ inputs.backend_container }}
+        TASK_DEFINITION: ${{ steps.register.outputs.task_definition }}
+      run: |
+        service_details="$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$BACKEND_SERVICE" --output json)"
+        network_configuration="$(jq -c '{awsvpcConfiguration: .services[0].networkConfiguration.awsvpcConfiguration}' <<< "$service_details")"
+        test "$(jq -r '.awsvpcConfiguration.assignPublicIp' <<< "$network_configuration")" = "DISABLED"
+
+        run_result="$(aws ecs run-task \
+          --cluster "$ECS_CLUSTER" \
+          --launch-type FARGATE \
+          --task-definition "$TASK_DEFINITION" \
+          --network-configuration "$network_configuration" \
+          --started-by "happy-post-database-migration-${GITHUB_RUN_ID}" \
+          --tags key=Project,value=happy-post key=Environment,value=sandbox key=Component,value=backend key=Purpose,value=database-migration \
+          --output json)"
+        jq -e '.failures | length == 0' <<< "$run_result" > /dev/null
+        task_arn="$(jq -r '.tasks[0].taskArn' <<< "$run_result")"
+        [[ "$task_arn" == arn:*:ecs:*:*:task/* ]]
+
+        aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$task_arn"
+        task_details="$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$task_arn" --output json)"
+        exit_code="$(jq -r --arg container "$BACKEND_CONTAINER" '.tasks[0].containers[] | select(.name == $container) | .exitCode' <<< "$task_details")"
+        stopped_reason="$(jq -r '.tasks[0].stoppedReason // "not provided"' <<< "$task_details")"
+        container_reason="$(jq -r --arg container "$BACKEND_CONTAINER" '.tasks[0].containers[] | select(.name == $container) | .reason // "not provided"' <<< "$task_details")"
+        test "$exit_code" = "0"
+
+        {
+          echo "## Database migration succeeded"
+          echo "- Task definition: $TASK_DEFINITION"
+          echo "- Migration task: $task_arn"
+          echo "- Exit code: $exit_code"
+          echo "- Stopped reason: $stopped_reason"
+          echo "- Container reason: $container_reason"
+        } >> "$GITHUB_STEP_SUMMARY"

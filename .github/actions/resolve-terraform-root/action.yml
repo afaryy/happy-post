@@ -1,0 +1,39 @@
+name: Resolve Terraform root
+description: Resolve an approved Happy Post Terraform target to its root directory.
+
+inputs:
+  target:
+    description: Canonical Terraform target.
+    required: true
+
+outputs:
+  working_directory:
+    description: Terraform root directory.
+    value: ${{ steps.resolve.outputs.working_directory }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve Terraform root
+      id: resolve
+      shell: bash
+      env:
+        TERRAFORM_TARGET: ${{ inputs.target }}
+      run: |
+        case "$TERRAFORM_TARGET" in
+          network) working_directory=infra/terraform/foundations/network ;;
+          security-identity) working_directory=infra/terraform/foundations/security-identity ;;
+          platform) working_directory=infra/terraform/foundations/platform ;;
+          edge) working_directory=infra/terraform/foundations/edge ;;
+          data) working_directory=infra/terraform/stacks/data ;;
+          backend-service) working_directory=infra/terraform/stacks/backend-service ;;
+          frontend-service) working_directory=infra/terraform/stacks/frontend-service ;;
+          observability) working_directory=infra/terraform/stacks/observability ;;
+          *)
+            echo "Unsupported Terraform target: $TERRAFORM_TARGET"
+            exit 1
+            ;;
+        esac
+
+        test -d "$working_directory"
+        echo "working_directory=$working_directory" >> "$GITHUB_OUTPUT"

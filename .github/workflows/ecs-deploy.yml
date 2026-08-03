@@ -27,6 +27,7 @@ permissions:
   contents: read
 
 env:
+  AWS_ACCOUNT_ID: "893794041695"
   AWS_REGION: ap-southeast-2
   ECS_DEPLOY_ROLE_ARN: arn:aws:iam::893794041695:role/happy-post-sandbox-ecs-deploy
   ECS_CLUSTER: happy-post-sandbox-cluster
@@ -79,36 +80,9 @@ jobs:
 
       - name: Resolve selected service
         id: service
-        env:
-          COMPONENT: ${{ inputs.component }}
-        run: |
-          case "$COMPONENT" in
-            backend)
-              repository=happy-post-sandbox-backend
-              service=happy-post-sandbox-backend
-              family=happy-post-sandbox-backend
-              container=backend
-              target_group=happy-post-sandbox-backend
-              smoke_url=https://happy-post.asksafe.ai/backend/healthz
-              ;;
-            frontend)
-              repository=happy-post-sandbox-frontend
-              service=happy-post-sandbox-frontend
-              family=happy-post-sandbox-frontend
-              container=frontend
-              target_group=happy-post-sandbox-frontend
-              smoke_url=https://happy-post.asksafe.ai/healthz
-              ;;
-            *) echo "Unsupported component: $COMPONENT"; exit 1 ;;
-          esac
-          {
-            echo "repository=$repository"
-            echo "service=$service"
-            echo "family=$family"
-            echo "container=$container"
-            echo "target_group=$target_group"
-            echo "smoke_url=$smoke_url"
-          } >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/resolve-ecs-service
+        with:
+          component: ${{ inputs.component }}
 
       - name: Configure short-lived AWS credentials
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
@@ -118,90 +92,24 @@ jobs:
           role-session-name: happy-post-ecs-deploy-${{ github.run_id }}
 
       - name: Verify digest provenance in selected ECR repository
-        env:
-          REPOSITORY: ${{ steps.service.outputs.repository }}
-          IMAGE_DIGEST: ${{ inputs.image_digest }}
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
-        run: |
-          image_details="$(aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageDigest="$IMAGE_DIGEST" --output json)"
-          test "$(jq -r '.imageDetails[0].imageDigest' <<< "$image_details")" = "$IMAGE_DIGEST"
-          jq -e --arg tag "sha-$SOURCE_COMMIT" '.imageDetails[0].imageTags | index($tag) != null' <<< "$image_details" > /dev/null
+        uses: ./.github/actions/verify-ecr-image
+        with:
+          repository: ${{ steps.service.outputs.repository }}
+          image_digest: ${{ inputs.image_digest }}
+          source_commit: ${{ inputs.source_commit }}
 
       - name: Register and deploy a digest-pinned task definition
-        id: deploy
-        env:
-          COMPONENT: ${{ inputs.component }}
-          IMAGE_DIGEST: ${{ inputs.image_digest }}
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
-          REPOSITORY: ${{ steps.service.outputs.repository }}
-          SERVICE: ${{ steps.service.outputs.service }}
-          FAMILY: ${{ steps.service.outputs.family }}
-          CONTAINER: ${{ steps.service.outputs.container }}
-          TARGET_GROUP_NAME: ${{ steps.service.outputs.target_group }}
-          SMOKE_URL: ${{ steps.service.outputs.smoke_url }}
-        run: |
-          deployment_started=false
-          previous_task_definition=""
-
-          rollback_after_failure() {
-            exit_code=$?
-            trap - ERR
-            if [[ "$deployment_started" == true ]]; then
-              echo "Deployment verification failed; restoring $previous_task_definition"
-              aws ecs update-service --cluster "$ECS_CLUSTER" --service "$SERVICE" --task-definition "$previous_task_definition" > /dev/null
-              aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$SERVICE"
-              curl --fail --silent --show-error --max-time 20 "$SMOKE_URL" > /dev/null
-            fi
-            exit "$exit_code"
-          }
-          trap rollback_after_failure ERR
-
-          service_details="$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$SERVICE" --output json)"
-          test "$(jq -r '.services | length' <<< "$service_details")" = "1"
-          test "$(jq -r '.services[0].status' <<< "$service_details")" = "ACTIVE"
-          previous_task_definition="$(jq -r '.services[0].taskDefinition' <<< "$service_details")"
-          [[ "$previous_task_definition" == *":task-definition/$FAMILY:"* ]]
-
-          target_group_arn="$(aws elbv2 describe-target-groups --names "$TARGET_GROUP_NAME" --query 'TargetGroups[0].TargetGroupArn' --output text)"
-          target_health="$(aws elbv2 describe-target-health --target-group-arn "$target_group_arn" --output json)"
-          jq -e '[.TargetHealthDescriptions[].TargetHealth.State] | any(. == "healthy")' <<< "$target_health" > /dev/null
-          curl --fail --silent --show-error --max-time 20 "$SMOKE_URL" > /dev/null
-          aws ecs tag-resource --resource-arn "$previous_task_definition" --tags key=HappyPostDeploymentStatus,value=known-good
-
-          aws ecs describe-task-definition --task-definition "$previous_task_definition" --include TAGS --output json > current-task-definition.json
-          jq -e --arg container "$CONTAINER" '[.taskDefinition.containerDefinitions[] | select(.name == $container)] | length == 1' current-task-definition.json > /dev/null
-
-          image_uri="893794041695.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPOSITORY}@${IMAGE_DIGEST}"
-          jq --arg container "$CONTAINER" --arg image "$image_uri" --arg version "$IMAGE_DIGEST" '
-            .taskDefinition
-            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
-            | .containerDefinitions |= map(
-                if .name == $container then
-                  .image = $image
-                  | .environment |= map(if .name == "APP_VERSION" then .value = $version else . end)
-                else . end
-              )
-          ' current-task-definition.json > candidate-task-definition.json
-
-          candidate_task_definition="$(aws ecs register-task-definition --cli-input-json file://candidate-task-definition.json --tags key=Project,value=happy-post key=Environment,value=sandbox key=Component,value="$COMPONENT" key=HappyPostDeploymentStatus,value=candidate key=SourceCommit,value="$SOURCE_COMMIT" --query 'taskDefinition.taskDefinitionArn' --output text)"
-          [[ "$candidate_task_definition" == *":task-definition/$FAMILY:"* ]]
-          deployment_started=true
-          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$SERVICE" --task-definition "$candidate_task_definition" > /dev/null
-          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$SERVICE"
-
-          deployed_task_definition="$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$SERVICE" --query 'services[0].taskDefinition' --output text)"
-          test "$deployed_task_definition" = "$candidate_task_definition"
-          target_health="$(aws elbv2 describe-target-health --target-group-arn "$target_group_arn" --output json)"
-          jq -e '[.TargetHealthDescriptions[].TargetHealth.State] | any(. == "healthy")' <<< "$target_health" > /dev/null
-          curl --fail --silent --show-error --max-time 20 "$SMOKE_URL" > /dev/null
-          aws ecs tag-resource --resource-arn "$candidate_task_definition" --tags key=HappyPostDeploymentStatus,value=known-good
-
-          {
-            echo "## ECS deployment succeeded"
-            echo "- Component: $COMPONENT"
-            echo "- Previous task definition: $previous_task_definition"
-            echo "- Deployed task definition: $candidate_task_definition"
-            echo "- Image digest: $IMAGE_DIGEST"
-            echo "- Source commit: $SOURCE_COMMIT"
-            echo "- Smoke test: $SMOKE_URL"
-          } >> "$GITHUB_STEP_SUMMARY"
+        uses: ./.github/actions/deploy-ecs-service
+        with:
+          aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
+          aws_region: ${{ env.AWS_REGION }}
+          ecs_cluster: ${{ env.ECS_CLUSTER }}
+          component: ${{ inputs.component }}
+          repository: ${{ steps.service.outputs.repository }}
+          service: ${{ steps.service.outputs.service }}
+          family: ${{ steps.service.outputs.family }}
+          container: ${{ steps.service.outputs.container }}
+          target_group: ${{ steps.service.outputs.target_group }}
+          smoke_url: ${{ steps.service.outputs.smoke_url }}
+          image_digest: ${{ inputs.image_digest }}
+          source_commit: ${{ inputs.source_commit }}

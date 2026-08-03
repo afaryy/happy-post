@@ -42,43 +42,12 @@ jobs:
 
       - name: Select changed components
         id: detect
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          REQUESTED_COMPONENT: ${{ inputs.component || '' }}
-          BASE_SHA: ${{ github.event.before }}
-          HEAD_SHA: ${{ github.sha }}
-        run: |
-          backend=false
-          frontend=false
-          case "$EVENT_NAME" in
-            workflow_dispatch)
-              test "$GITHUB_REF" = "refs/heads/main"
-              case "$REQUESTED_COMPONENT" in
-                backend) backend=true ;;
-                frontend) frontend=true ;;
-                all) backend=true; frontend=true ;;
-                *) echo "Unsupported component: $REQUESTED_COMPONENT"; exit 1 ;;
-              esac
-              ;;
-            push)
-              if [[ "$BASE_SHA" =~ ^0+$ ]] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
-                changed_files="$(git diff-tree --no-commit-id --name-only -r "$HEAD_SHA")"
-              else
-                changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
-              fi
-              if grep -Eq '^backend/' <<< "$changed_files"; then
-                backend=true
-              fi
-              if grep -Eq '^frontend/' <<< "$changed_files"; then
-                frontend=true
-              fi
-              ;;
-            *) echo "Unsupported event: $EVENT_NAME"; exit 1 ;;
-          esac
-
-          echo "backend=$backend" >> "$GITHUB_OUTPUT"
-          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
-          echo "Selected components: backend=$backend frontend=$frontend"
+        uses: ./.github/actions/select-image-components
+        with:
+          event_name: ${{ github.event_name }}
+          requested_component: ${{ inputs.component || '' }}
+          base_sha: ${{ github.event.before }}
+          head_sha: ${{ github.sha }}
 
   publish-backend:
     name: Build, scan, and publish backend
@@ -118,29 +87,13 @@ jobs:
 
       - name: Push backend image to its ECR repository
         id: publish
-        env:
-          REPOSITORY: happy-post-sandbox-backend
-          IMAGE_TAG: sha-${{ github.sha }}
-        run: |
-          registry="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-          destination="$registry/$REPOSITORY:$IMAGE_TAG"
-          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$registry"
-          docker tag "happy-post-backend:${GITHUB_SHA}" "$destination"
-          docker push "$destination"
-          digest="$(aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)"
-          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
-
-      - name: Record backend digest handoff
-        env:
-          DIGEST: ${{ steps.publish.outputs.digest }}
-        run: |
-          {
-            echo "component=backend"
-            echo "repository=happy-post-sandbox-backend"
-            echo "digest=$DIGEST"
-            echo "source_commit=$GITHUB_SHA"
-          } > image-digest.txt
+        uses: ./.github/actions/publish-ecr-image
+        with:
+          aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
+          aws_region: ${{ env.AWS_REGION }}
+          component: backend
+          repository: happy-post-sandbox-backend
+          source_commit: ${{ github.sha }}
 
       - name: Upload backend digest handoff
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -188,29 +141,13 @@ jobs:
 
       - name: Push frontend image to its ECR repository
         id: publish
-        env:
-          REPOSITORY: happy-post-sandbox-frontend
-          IMAGE_TAG: sha-${{ github.sha }}
-        run: |
-          registry="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-          destination="$registry/$REPOSITORY:$IMAGE_TAG"
-          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$registry"
-          docker tag "happy-post-frontend:${GITHUB_SHA}" "$destination"
-          docker push "$destination"
-          digest="$(aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)"
-          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
-
-      - name: Record frontend digest handoff
-        env:
-          DIGEST: ${{ steps.publish.outputs.digest }}
-        run: |
-          {
-            echo "component=frontend"
-            echo "repository=happy-post-sandbox-frontend"
-            echo "digest=$DIGEST"
-            echo "source_commit=$GITHUB_SHA"
-          } > image-digest.txt
+        uses: ./.github/actions/publish-ecr-image
+        with:
+          aws_account_id: ${{ env.AWS_ACCOUNT_ID }}
+          aws_region: ${{ env.AWS_REGION }}
+          component: frontend
+          repository: happy-post-sandbox-frontend
+          source_commit: ${{ github.sha }}
 
       - name: Upload frontend digest handoff
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

@@ -75,26 +75,9 @@ jobs:
 
       - name: Resolve selected service root
         id: service
-        env:
-          COMPONENT: ${{ inputs.component }}
-        run: |
-          case "$COMPONENT" in
-            backend)
-              working_directory=infra/terraform/stacks/backend-service
-              repository=happy-post-sandbox-backend
-              variable_name=backend_image_digest
-              ;;
-            frontend)
-              working_directory=infra/terraform/stacks/frontend-service
-              repository=happy-post-sandbox-frontend
-              variable_name=frontend_image_digest
-              ;;
-            *) echo "Unsupported component: $COMPONENT"; exit 1 ;;
-          esac
-          test -d "$working_directory"
-          echo "working_directory=$working_directory" >> "$GITHUB_OUTPUT"
-          echo "repository=$repository" >> "$GITHUB_OUTPUT"
-          echo "variable_name=$variable_name" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/resolve-service-bootstrap-target
+        with:
+          component: ${{ inputs.component }}
 
       - name: Configure short-lived AWS credentials
         uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
@@ -104,16 +87,11 @@ jobs:
           role-session-name: happy-post-service-bootstrap-${{ github.run_id }}
 
       - name: Verify digest belongs to the selected ECR repository
-        env:
-          REPOSITORY: ${{ steps.service.outputs.repository }}
-          IMAGE_DIGEST: ${{ inputs.image_digest }}
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
-        run: |
-          image_details="$(aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageDigest="$IMAGE_DIGEST" --output json)"
-          verified_digest="$(jq -r '.imageDetails[0].imageDigest' <<< "$image_details")"
-          test "$verified_digest" = "$IMAGE_DIGEST"
-          image_tag="sha-$SOURCE_COMMIT"
-          jq -e --arg image_tag "$image_tag" '.imageDetails[0].imageTags | index($image_tag) != null' <<< "$image_details" > /dev/null
+        uses: ./.github/actions/verify-ecr-image
+        with:
+          repository: ${{ steps.service.outputs.repository }}
+          image_digest: ${{ inputs.image_digest }}
+          source_commit: ${{ inputs.source_commit }}
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2

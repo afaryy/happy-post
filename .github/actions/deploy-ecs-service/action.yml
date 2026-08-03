@@ -1,0 +1,129 @@
+name: Deploy ECS service
+description: Register a digest-pinned ECS task definition and update one Happy Post ECS service.
+
+inputs:
+  aws_account_id:
+    description: AWS account ID that owns the ECR repository.
+    required: true
+  aws_region:
+    description: AWS region.
+    required: true
+  ecs_cluster:
+    description: ECS cluster name.
+    required: true
+  component:
+    description: Component being deployed.
+    required: true
+  repository:
+    description: ECR repository name.
+    required: true
+  service:
+    description: ECS service name.
+    required: true
+  family:
+    description: ECS task-definition family.
+    required: true
+  container:
+    description: ECS container name.
+    required: true
+  target_group:
+    description: ALB target group name.
+    required: true
+  smoke_url:
+    description: Public smoke-test URL.
+    required: true
+  image_digest:
+    description: Verified image digest to deploy.
+    required: true
+  source_commit:
+    description: Source commit associated with the image digest.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Register and deploy task definition
+      shell: bash
+      env:
+        AWS_ACCOUNT_ID: ${{ inputs.aws_account_id }}
+        AWS_REGION: ${{ inputs.aws_region }}
+        ECS_CLUSTER: ${{ inputs.ecs_cluster }}
+        COMPONENT: ${{ inputs.component }}
+        REPOSITORY: ${{ inputs.repository }}
+        SERVICE: ${{ inputs.service }}
+        FAMILY: ${{ inputs.family }}
+        CONTAINER: ${{ inputs.container }}
+        TARGET_GROUP_NAME: ${{ inputs.target_group }}
+        SMOKE_URL: ${{ inputs.smoke_url }}
+        IMAGE_DIGEST: ${{ inputs.image_digest }}
+        SOURCE_COMMIT: ${{ inputs.source_commit }}
+      run: |
+        deployment_started=false
+        previous_task_definition=""
+
+        rollback_after_failure() {
+          exit_code=$?
+          trap - ERR
+          if [[ "$deployment_started" == true ]]; then
+            echo "Deployment verification failed; restoring $previous_task_definition"
+            aws ecs update-service --cluster "$ECS_CLUSTER" --service "$SERVICE" --task-definition "$previous_task_definition" > /dev/null
+            aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$SERVICE"
+            curl --fail --silent --show-error --max-time 20 "$SMOKE_URL" > /dev/null
+          fi
+          exit "$exit_code"
+        }
+        trap rollback_after_failure ERR
+
+        service_details="$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$SERVICE" --output json)"
+        test "$(jq -r '.services | length' <<< "$service_details")" = "1"
+        test "$(jq -r '.services[0].status' <<< "$service_details")" = "ACTIVE"
+        previous_task_definition="$(jq -r '.services[0].taskDefinition' <<< "$service_details")"
+        [[ "$previous_task_definition" == *":task-definition/$FAMILY:"* ]]
+
+        target_group_arn="$(aws elbv2 describe-target-groups --names "$TARGET_GROUP_NAME" --query 'TargetGroups[0].TargetGroupArn' --output text)"
+        target_health="$(aws elbv2 describe-target-health --target-group-arn "$target_group_arn" --output json)"
+        jq -e '[.TargetHealthDescriptions[].TargetHealth.State] | any(. == "healthy")' <<< "$target_health" > /dev/null
+        curl --fail --silent --show-error --max-time 20 "$SMOKE_URL" > /dev/null
+        aws ecs tag-resource --resource-arn "$previous_task_definition" --tags key=HappyPostDeploymentStatus,value=known-good
+
+        aws ecs describe-task-definition --task-definition "$previous_task_definition" --include TAGS --output json > current-task-definition.json
+        jq -e --arg container "$CONTAINER" '[.taskDefinition.containerDefinitions[] | select(.name == $container)] | length == 1' current-task-definition.json > /dev/null
+
+        image_uri="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPOSITORY}@${IMAGE_DIGEST}"
+        jq --arg container "$CONTAINER" --arg image "$image_uri" --arg version "$IMAGE_DIGEST" '
+          .taskDefinition
+          | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
+          | .containerDefinitions |= map(
+              if .name == $container then
+                .image = $image
+                | .environment |= map(if .name == "APP_VERSION" then .value = $version else . end)
+              else . end
+            )
+        ' current-task-definition.json > candidate-task-definition.json
+
+        candidate_task_definition="$(aws ecs register-task-definition \
+          --cli-input-json file://candidate-task-definition.json \
+          --tags key=Project,value=happy-post key=Environment,value=sandbox key=Component,value="$COMPONENT" key=HappyPostDeploymentStatus,value=candidate key=SourceCommit,value="$SOURCE_COMMIT" \
+          --query 'taskDefinition.taskDefinitionArn' \
+          --output text)"
+        [[ "$candidate_task_definition" == *":task-definition/$FAMILY:"* ]]
+        deployment_started=true
+        aws ecs update-service --cluster "$ECS_CLUSTER" --service "$SERVICE" --task-definition "$candidate_task_definition" > /dev/null
+        aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$SERVICE"
+
+        deployed_task_definition="$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$SERVICE" --query 'services[0].taskDefinition' --output text)"
+        test "$deployed_task_definition" = "$candidate_task_definition"
+        target_health="$(aws elbv2 describe-target-health --target-group-arn "$target_group_arn" --output json)"
+        jq -e '[.TargetHealthDescriptions[].TargetHealth.State] | any(. == "healthy")' <<< "$target_health" > /dev/null
+        curl --fail --silent --show-error --max-time 20 "$SMOKE_URL" > /dev/null
+        aws ecs tag-resource --resource-arn "$candidate_task_definition" --tags key=HappyPostDeploymentStatus,value=known-good
+
+        {
+          echo "## ECS deployment succeeded"
+          echo "- Component: $COMPONENT"
+          echo "- Previous task definition: $previous_task_definition"
+          echo "- Deployed task definition: $candidate_task_definition"
+          echo "- Image digest: $IMAGE_DIGEST"
+          echo "- Source commit: $SOURCE_COMMIT"
+          echo "- Smoke test: $SMOKE_URL"
+        } >> "$GITHUB_STEP_SUMMARY"

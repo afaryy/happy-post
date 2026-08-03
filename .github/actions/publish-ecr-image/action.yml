@@ -1,0 +1,56 @@
+name: Publish ECR image
+description: Push a locally built component image to ECR and write an immutable digest handoff file.
+
+inputs:
+  aws_account_id:
+    description: AWS account ID that owns the ECR repository.
+    required: true
+  aws_region:
+    description: AWS region.
+    required: true
+  component:
+    description: Component name.
+    required: true
+  repository:
+    description: ECR repository name.
+    required: true
+  source_commit:
+    description: Source commit SHA used as the immutable image tag.
+    required: true
+
+outputs:
+  digest:
+    description: ECR image digest.
+    value: ${{ steps.publish.outputs.digest }}
+
+runs:
+  using: composite
+  steps:
+    - name: Push image and write digest handoff
+      id: publish
+      shell: bash
+      env:
+        AWS_ACCOUNT_ID: ${{ inputs.aws_account_id }}
+        AWS_REGION: ${{ inputs.aws_region }}
+        COMPONENT: ${{ inputs.component }}
+        REPOSITORY: ${{ inputs.repository }}
+        SOURCE_COMMIT: ${{ inputs.source_commit }}
+      run: |
+        image_tag="sha-$SOURCE_COMMIT"
+        registry="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        destination="$registry/$REPOSITORY:$image_tag"
+
+        aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$registry"
+        docker tag "happy-post-${COMPONENT}:${SOURCE_COMMIT}" "$destination"
+        docker push "$destination"
+
+        digest="$(aws ecr describe-images --repository-name "$REPOSITORY" --image-ids imageTag="$image_tag" --query 'imageDetails[0].imageDigest' --output text)"
+        [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+        echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+        {
+          echo "component=$COMPONENT"
+          echo "repository=$REPOSITORY"
+          echo "digest=$digest"
+          echo "source_commit=$SOURCE_COMMIT"
+        } > image-digest.txt
