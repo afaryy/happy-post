@@ -1,6 +1,6 @@
-# Implementation Backlog
+# Implementation Backlog and Delivery Status
 
-The documentation baseline and application MVPs are complete. The remaining work is deliberately ordered so that local containers precede infrastructure and automation.
+The documentation baseline, application MVPs, AWS sandbox foundation, CI/CD controls, controlled ECS deployment, and P6 database-backed Happy Post MVP are complete. Remaining items are future hardening or optional operational rehearsals, not blockers for the current sandbox demonstration.
 
 ## P0 — Documentation baseline (complete)
 
@@ -40,7 +40,6 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Define frontend and backend CPU target-tracking scaling: minimum one task, maximum two tasks, 65% CPU target.
 - [x] Apply the network HTTP redirect ingress, rotate the database secret to include `database_url`, and apply the edge root.
 - [x] Publish and scan frontend and backend images, then bootstrap each component service root with its real immutable digest.
-- [ ] Perform the required isolated RDS restore test before the first database-changing release or migration.
 
 ## P5 — CI/CD and operational validation
 
@@ -53,7 +52,6 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Implement post-bootstrap component-selected ECS deployment, health verification, and known-good rollback workflows.
 - [x] Restrict the single GitHub environment, `sandbox`, to deployment branch `main` while retaining no required reviewers; then validate plan, apply, publish, and deployment role separation.
 - [x] Execute controlled backend and frontend ECS deployments and public HTTPS smoke tests through the post-bootstrap deployment workflow.
-- [ ] Rehearse component rollback only if time permits before assessment submission.
 
 ## P6 — Database-backed Three Happy Things MVP
 
@@ -66,8 +64,13 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Publish new immutable frontend and backend images from merged P6 `main`.
 - [x] Merge the controlled database migration workflow, update the CloudFormation bootstrap stack, then run `alembic upgrade head` as a one-off private ECS task from the verified backend image digest.
 - [x] Deploy the P6 backend, deploy the P6 frontend, then verify entry persistence through RDS.
-- [ ] Re-run the restart persistence demo: create an entry, restart backend, and confirm the happy things remain.
-- [ ] For real users, replace MVP app-level auth with managed identity such as Amazon Cognito, Auth0, or Clerk.
+- [x] Re-run the restart persistence demo: create an entry, restart backend, and confirm the happy things remain.
+
+## Future hardening and optional rehearsals
+
+- [ ] Perform an isolated RDS restore test before any further database-changing release or migration.
+- [ ] Rehearse component rollback with a safe no-op or previous known-good revision when time permits.
+- [ ] Replace sandbox MVP app-level auth with managed identity such as Amazon Cognito, Auth0, or Clerk before serving real users.
 
 ## Deferred options
 

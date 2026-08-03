@@ -64,6 +64,19 @@ revision, and updates only the selected existing service. Terraform ignores the
 service task-definition field after initial creation so it does not undo that
 delivery revision.
 
+## Why there is no modules directory yet
+
+This repository intentionally keeps each Terraform root explicit instead of
+introducing a shared `modules/` directory too early. The current sandbox has one
+environment and one instance of each major component, so root-level code is
+easier to review for ownership, state boundaries, IAM scope, and assessment
+traceability.
+
+A `modules/` directory should be introduced when a pattern is reused across
+multiple environments, accounts, regions, or repeated services. At that point,
+modules should preserve the same state boundaries and least-privilege ownership
+model instead of hiding cross-stack dependencies.
+
 ## State backend
 
 The network root uses this non-secret backend configuration:
