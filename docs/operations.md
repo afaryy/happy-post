@@ -13,6 +13,7 @@ This document records the operational baseline for the single sandbox environmen
 - Deployment verifies ECS service stability and the relevant public health route before it succeeds.
 - The `Publish Immutable Images` workflow creates a seven-day digest-handoff artifact for each changed component after a successful Trivy gate and ECR push. Before initial service creation, manually dispatch it from `main` with the required component or `all`. Use the matching artifact's `digest` and `source_commit` with `Bootstrap ECS Service`, select the same component, and enter `bootstrap-<component>`. The workflow validates the digest and full lowercase source SHA, rejects the all-zero example value, confirms that the digest belongs to the matching ECR repository with its `sha-<source_commit>` tag, then applies only that service root from immutable `main`.
 - `Bootstrap ECS Service` is initial-creation-only. For a later component release, use `Deploy ECS Service` with the matching image-publication `digest`, `source_commit`, and `deploy-<component>` confirmation. It verifies ECR provenance, records the currently healthy task definition as known-good, registers a new digest-pinned revision, updates only that service, waits for ECS stability and a healthy ALB target, then calls the component public HTTPS health URL. It automatically restores the captured predecessor if its post-update verification fails.
+- For a database-changing backend release, run `Run Database Migration` before `Deploy ECS Service`. Use the same backend digest-handoff artifact values: `image_digest`, `source_commit`, and confirmation `migrate-backend`. The workflow verifies the backend ECR digest and immutable source tag, runs `alembic upgrade head` as a one-off private ECS Fargate task, waits for task completion, and fails unless the migration container exits with code `0`.
 - For an intentional component rollback, use `Roll Back ECS Service` with `rollback-<component>`. It selects only the immediately preceding task-definition revision that is tagged `HappyPostDeploymentStatus=known-good`; it fails safely if there is no such predecessor.
 - Notifications are intentionally outside the current baseline. Failed workflows and CloudWatch alarms remain visible in their respective consoles until a notification integration is separately approved.
 
@@ -40,6 +41,8 @@ The rollback workflow is available for component-scoped recovery. Rehearse rollb
 - MVP auth uses an HttpOnly SameSite=Lax cookie containing an opaque random token, while PostgreSQL stores only the token hash in `user_sessions`. Sign-out deletes the current database session. Expired sessions are rejected by the backend. There is no shared session-signing secret to rotate in the MVP design.
 - Restore testing is required before a release and after every database-changing migration. Restore to an isolated temporary private RDS instance, verify availability, approved private connectivity, `SELECT 1`, migration version, and row-count sanity checks for `users`, `user_sessions`, `daily_entries`, and `daily_entry_items`, record evidence, then remove the temporary restore resources.
 - A database change requires a backward-compatible migration plan and either a restore plan or a compensating migration before deployment. For the first P6 release, run the append-only Alembic chain through `0002_create_users_daily_entries`, which replaces the temporary `posts` table with `users`, `user_sessions`, `daily_entries`, and `daily_entry_items`, before deploying the backend image that requires it.
+- The controlled migration workflow derives its subnet and security-group placement from the active backend ECS service, so the migration task runs in the same private application network path as the backend. It uses the backend execution role for `DATABASE_URL` secret injection and must not print connection strings or secret values.
+- After merging migration-workflow changes, update the `happy-post-sandbox-bootstrap` CloudFormation stack before the first migration run. The deployed ECS deploy role must include scoped `ecs:RunTask` permission for the `happy-post-sandbox-backend-migration` task-definition family.
 
 ## Terraform state-backend operations
 
@@ -55,6 +58,8 @@ The rollback workflow is available for component-scoped recovery. Rehearse rollb
 3. Wait for service stability and rerun that component's smoke checks.
 4. Do not roll back database schema automatically. Use the approved restore or compensating-migration plan.
 5. Record the cause, affected version, rollback revision, and follow-up action.
+
+If a schema migration succeeds but the backend deployment fails, keep the ECS rollback scoped to the backend task definition first. Use the database restore or compensating-migration procedure only when the successful migration is not backward-compatible with the previous backend image.
 
 ## Deferred operational capabilities
 

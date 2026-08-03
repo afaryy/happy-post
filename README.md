@@ -13,12 +13,15 @@ The MVP application source is present: a FastAPI daily-entry API and a warm Next
 - [Application CI](.github/workflows/application-ci.yml): changed-component backend and frontend linting, unit tests, and frontend build checks.
 - [Image publication](.github/workflows/image-publish.yml): changed-component `main` publication plus a main-only manual initial publication, Trivy gate, immutable ECR publication, and digest handoff artifact.
 - [Service bootstrap](.github/workflows/service-bootstrap.yml): manually creates one selected initial service only after repository-specific digest and immutable source-commit-tag verification.
+- [Database migration](.github/workflows/database-migration.yml): manually runs `alembic upgrade head` as a one-off private ECS Fargate task from a verified backend image digest before deploying a backend release that requires schema changes.
 - [ECS deployment](.github/workflows/ecs-deploy.yml): manually updates one existing service with a verified immutable digest, then verifies ECS, ALB, and public HTTPS health.
 - [ECS rollback](.github/workflows/ecs-rollback.yml): manually restores one existing service to its immediately preceding known-good task-definition revision.
 
 ## Deployed service verification
 
 The controlled ECS deployment workflow has successfully deployed both services. Backend smoke tests passed at `/backend/healthz` and `/backend/version`; the backend version response reports the deployed immutable image digest. Frontend smoke tests passed at `/healthz` and `/version`; the frontend version response currently reports the application version `0.1.0`. The rollback workflow is available for component-scoped recovery and should be rehearsed only if time permits before assessment submission.
+
+Database-changing releases require one extra controlled step before the backend deployment. After publishing the backend image from `main`, run the manual database migration workflow with the same backend `image_digest` and `source_commit`, confirm `migrate-backend`, verify success, and only then run the backend ECS deployment workflow with that digest. After this workflow is merged, update the `happy-post-sandbox-bootstrap` CloudFormation stack before running it so the deployment role has the scoped `ecs:RunTask` permission for migration tasks.
 
 ## Run locally with containers
 

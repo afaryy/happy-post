@@ -1,0 +1,164 @@
+name: Run Database Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_digest:
+        description: Exact backend SHA-256 image digest from the Publish Immutable Images artifact.
+        required: true
+        type: string
+      source_commit:
+        description: Full lowercase main-commit SHA recorded in the matching backend digest artifact.
+        required: true
+        type: string
+      confirm:
+        description: Enter migrate-backend to run Alembic upgrade head as a one-off ECS task.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ap-southeast-2
+  ECS_DEPLOY_ROLE_ARN: arn:aws:iam::893794041695:role/happy-post-sandbox-ecs-deploy
+  ECS_CLUSTER: happy-post-sandbox-cluster
+  BACKEND_SERVICE: happy-post-sandbox-backend
+  BACKEND_REPOSITORY: happy-post-sandbox-backend
+  BACKEND_CONTAINER: backend
+  MIGRATION_FAMILY: happy-post-sandbox-backend-migration
+
+jobs:
+  migrate-database:
+    name: Run backend Alembic migration
+    runs-on: ubuntu-latest
+    environment: sandbox
+    concurrency:
+      group: database-migration-backend
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Validate migration inputs
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          test "$CONFIRM" = "migrate-backend"
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          test "$IMAGE_DIGEST" != "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+
+      - name: Require main workflow dispatch
+        run: test "$GITHUB_REF" = "refs/heads/main"
+
+      - name: Check out immutable main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify immutable source commit
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          main_commit="$(git rev-parse origin/main)"
+          git checkout --detach "$main_commit"
+          test "$(git rev-parse HEAD)" = "$main_commit"
+          git cat-file -e "$SOURCE_COMMIT^{commit}"
+          git merge-base --is-ancestor "$SOURCE_COMMIT" origin/main
+          echo "Migration image was produced from immutable main ancestor: $SOURCE_COMMIT"
+
+      - name: Configure short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.ECS_DEPLOY_ROLE_ARN }}
+          role-session-name: happy-post-database-migration-${{ github.run_id }}
+
+      - name: Verify backend image digest provenance
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          image_details="$(aws ecr describe-images --repository-name "$BACKEND_REPOSITORY" --image-ids imageDigest="$IMAGE_DIGEST" --output json)"
+          test "$(jq -r '.imageDetails[0].imageDigest' <<< "$image_details")" = "$IMAGE_DIGEST"
+          jq -e --arg tag "sha-$SOURCE_COMMIT" '.imageDetails[0].imageTags | index($tag) != null' <<< "$image_details" > /dev/null
+
+      - name: Register migration task definition
+        id: register
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          service_details="$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$BACKEND_SERVICE" --output json)"
+          test "$(jq -r '.services | length' <<< "$service_details")" = "1"
+          test "$(jq -r '.services[0].status' <<< "$service_details")" = "ACTIVE"
+          backend_task_definition="$(jq -r '.services[0].taskDefinition' <<< "$service_details")"
+          [[ "$backend_task_definition" == *":task-definition/happy-post-sandbox-backend:"* ]]
+
+          aws ecs describe-task-definition --task-definition "$backend_task_definition" --output json > backend-task-definition.json
+          jq -e --arg container "$BACKEND_CONTAINER" '[.taskDefinition.containerDefinitions[] | select(.name == $container)] | length == 1' backend-task-definition.json > /dev/null
+
+          image_uri="893794041695.dkr.ecr.${AWS_REGION}.amazonaws.com/${BACKEND_REPOSITORY}@${IMAGE_DIGEST}"
+          jq --arg family "$MIGRATION_FAMILY" --arg container "$BACKEND_CONTAINER" --arg image "$image_uri" --arg version "$IMAGE_DIGEST" '
+            .taskDefinition
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
+            | .family = $family
+            | .containerDefinitions |= map(
+                if .name == $container then
+                  .image = $image
+                  | .command = ["alembic", "upgrade", "head"]
+                  | .environment |= map(if .name == "APP_VERSION" then .value = $version else . end)
+                  | del(.healthCheck)
+                else . end
+              )
+          ' backend-task-definition.json > migration-task-definition.json
+
+          migration_task_definition="$(aws ecs register-task-definition \
+            --cli-input-json file://migration-task-definition.json \
+            --tags key=Project,value=happy-post key=Environment,value=sandbox key=Component,value=backend key=Purpose,value=database-migration key=SourceCommit,value="$SOURCE_COMMIT" \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)"
+          [[ "$migration_task_definition" == *":task-definition/$MIGRATION_FAMILY:"* ]]
+          echo "task_definition=$migration_task_definition" >> "$GITHUB_OUTPUT"
+
+      - name: Run migration task and wait for completion
+        env:
+          TASK_DEFINITION: ${{ steps.register.outputs.task_definition }}
+        run: |
+          service_details="$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$BACKEND_SERVICE" --output json)"
+          network_configuration="$(jq -c '{awsvpcConfiguration: .services[0].networkConfiguration.awsvpcConfiguration}' <<< "$service_details")"
+          test "$(jq -r '.awsvpcConfiguration.assignPublicIp' <<< "$network_configuration")" = "DISABLED"
+
+          run_result="$(aws ecs run-task \
+            --cluster "$ECS_CLUSTER" \
+            --launch-type FARGATE \
+            --task-definition "$TASK_DEFINITION" \
+            --network-configuration "$network_configuration" \
+            --started-by "happy-post-database-migration-${GITHUB_RUN_ID}" \
+            --enable-execute-command false \
+            --tags key=Project,value=happy-post key=Environment,value=sandbox key=Component,value=backend key=Purpose,value=database-migration \
+            --output json)"
+          jq -e '.failures | length == 0' <<< "$run_result" > /dev/null
+          task_arn="$(jq -r '.tasks[0].taskArn' <<< "$run_result")"
+          [[ "$task_arn" == arn:*:ecs:*:*:task/* ]]
+
+          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$task_arn"
+          task_details="$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$task_arn" --output json)"
+          exit_code="$(jq -r --arg container "$BACKEND_CONTAINER" '.tasks[0].containers[] | select(.name == $container) | .exitCode' <<< "$task_details")"
+          stopped_reason="$(jq -r '.tasks[0].stoppedReason // "not provided"' <<< "$task_details")"
+          container_reason="$(jq -r --arg container "$BACKEND_CONTAINER" '.tasks[0].containers[] | select(.name == $container) | .reason // "not provided"' <<< "$task_details")"
+          test "$exit_code" = "0"
+
+          {
+            echo "## Database migration succeeded"
+            echo "- Task definition: $TASK_DEFINITION"
+            echo "- Migration task: $task_arn"
+            echo "- Exit code: $exit_code"
+            echo "- Stopped reason: $stopped_reason"
+            echo "- Container reason: $container_reason"
+          } >> "$GITHUB_STEP_SUMMARY"

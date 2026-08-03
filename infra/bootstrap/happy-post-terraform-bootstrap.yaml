@@ -675,6 +675,15 @@ Resources:
                 Resource:
                   - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/${ProjectName}-${EnvironmentName}-cluster/${ProjectName}-${EnvironmentName}-frontend"
                   - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:service/${ProjectName}-${EnvironmentName}-cluster/${ProjectName}-${EnvironmentName}-backend"
+              - Sid: RunBackendMigrationTask
+                Effect: Allow
+                Action:
+                  - ecs:RunTask
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/${ProjectName}-${EnvironmentName}-backend-migration:*"
+                Condition:
+                  ArnEquals:
+                    "ecs:cluster": !Sub "arn:${AWS::Partition}:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ProjectName}-${EnvironmentName}-cluster"
               - Sid: ReadClusterAndTasks
                 Effect: Allow
                 Action:
