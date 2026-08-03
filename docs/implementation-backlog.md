@@ -11,7 +11,7 @@ The documentation baseline and application MVPs are complete. The remaining work
 ## P1 — Backend MVP
 
 - [x] Create the FastAPI backend application.
-- [x] Implement `/healthz`, `/version`, `/backend/healthz`, and `/backend/version`, plus the posts API contract under `/api/*`.
+- [x] Implement `/healthz`, `/version`, `/backend/healthz`, and `/backend/version`, plus the initial API contract under `/api/*`.
 - [x] Define the PostgreSQL data model and migration approach required by the backend.
 - [x] Add unit tests, linting, dependency management, and local configuration examples without secrets.
 
@@ -54,6 +54,19 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Restrict the single GitHub environment, `sandbox`, to deployment branch `main` while retaining no required reviewers; then validate plan, apply, publish, and deployment role separation.
 - [x] Execute controlled backend and frontend ECS deployments and public HTTPS smoke tests through the post-bootstrap deployment workflow.
 - [ ] Rehearse component rollback only if time permits before assessment submission.
+
+## P6 — Database-backed Three Happy Things MVP
+
+- [x] Replace the temporary posts board with a warm bedtime MVP that starts with three small happy things and allows more.
+- [x] Implement the `/api/entries/*` contract for today, month history, and date lookup.
+- [x] Add MVP email/password sign-up and sign-in so each user sees only their own happy-things history.
+- [x] Preserve append-only Alembic history by keeping `0001_create_posts` and adding `0002_create_users_daily_entries`, which replaces temporary posts with `users`, `user_sessions`, `daily_entries`, and `daily_entry_items`.
+- [x] Update local Compose to run PostgreSQL and apply migrations before backend startup.
+- [x] Add frontend loading, validation, success, error, and simple monthly history states.
+- [ ] Publish new immutable frontend and backend images after review and merge.
+- [ ] Run the database migration first, deploy the backend, deploy the frontend, then verify entry persistence through RDS.
+- [ ] Re-run the restart persistence demo: create an entry, restart backend, and confirm the happy things remain.
+- [ ] For real users, replace MVP app-level auth with managed identity such as Amazon Cognito, Auth0, or Clerk.
 
 ## Deferred options
 

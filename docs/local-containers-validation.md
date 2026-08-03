@@ -1,7 +1,7 @@
 # Local Containers Validation
 
-This record covers P3 local containerisation only: two services (`backend` and
-`frontend`) with no PostgreSQL or other infrastructure.
+This record covers local containerisation: local PostgreSQL (`db`), one-shot
+schema migration (`backend-migrate`), backend, and frontend services.
 
 Compose explicitly tags its locally built images as `happy-post-backend:local`
 and `happy-post-frontend:local`. This avoids Compose assigning implicit,
@@ -25,20 +25,21 @@ image digests, never mutable tags.
    passed: UID `100` (non-root) and HTTP `200`. Stop and remove the temporary
    container — passed.
 5. Run `docker compose config` with no environment override — passed. The
-   default loopback publications are backend `8000` and frontend `3000`.
+   default loopback publications are database `5432`, backend `8000`, and
+   frontend `3000`.
 6. A separate EasyGo service temporarily owned host port 8000, so validation
    used `HAPPY_POST_BACKEND_HOST_PORT=18000 docker compose up --build -d`.
    This changes only the backend host port; container-to-container routing
    remains `backend:8000`.
 7. Run `HAPPY_POST_BACKEND_HOST_PORT=18000 docker compose ps` — passed:
-   exactly two healthy services, `backend` and `frontend`.
+   database, migration, backend, and frontend completed or became healthy.
 8. Request the backend health endpoint, frontend health endpoint, and
-   frontend-proxied posts endpoint — passed: backend `/healthz` returned HTTP
-   `200`, frontend `/healthz` returned HTTP `200`, and frontend `/api/posts`
-   succeeded.
+   frontend-proxied entries endpoint — passed: backend `/healthz` returned HTTP
+   `200`, frontend `/healthz` returned HTTP `200`, and frontend `/api/entries`
+   succeeded with local PostgreSQL-backed persistence.
 9. Run `HAPPY_POST_BACKEND_HOST_PORT=18000 docker compose down --remove-orphans`
    — passed; Compose cleanup completed successfully.
 
 The alternate host-port setting was a validation-only workaround. Normal local
-use continues to expose backend on loopback port 8000 and frontend on loopback
-port 3000.
+use continues to expose database on loopback port 5432, backend on loopback
+port 8000, and frontend on loopback port 3000.
