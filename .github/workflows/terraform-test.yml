@@ -95,5 +95,8 @@ jobs:
       - name: Validate Terraform root
         run: terraform -chdir="${{ matrix.working_directory }}" validate
 
+      - name: Run Terraform native tests
+        run: terraform -chdir="${{ matrix.working_directory }}" test
+
       - name: Lint Terraform root
         run: tflint --chdir="${{ matrix.working_directory }}"

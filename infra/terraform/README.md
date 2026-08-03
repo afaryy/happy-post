@@ -91,17 +91,30 @@ From the repository root, run backend-free validation first:
 terraform -chdir=infra/terraform/foundations/network init -backend=false
 terraform fmt -check -recursive infra/terraform
 terraform -chdir=infra/terraform/foundations/network validate
+terraform -chdir=infra/terraform/foundations/network test
 terraform -chdir=infra/terraform/stacks/data init -backend=false
 terraform -chdir=infra/terraform/stacks/data validate
+terraform -chdir=infra/terraform/stacks/data test
 terraform -chdir=infra/terraform/foundations/platform init -backend=false
 terraform -chdir=infra/terraform/foundations/platform validate
+terraform -chdir=infra/terraform/foundations/platform test
 terraform -chdir=infra/terraform/foundations/edge init -backend=false
 terraform -chdir=infra/terraform/foundations/edge validate
+terraform -chdir=infra/terraform/foundations/edge test
 terraform -chdir=infra/terraform/stacks/backend-service init -backend=false
 terraform -chdir=infra/terraform/stacks/backend-service validate
+terraform -chdir=infra/terraform/stacks/backend-service test
 terraform -chdir=infra/terraform/stacks/frontend-service init -backend=false
 terraform -chdir=infra/terraform/stacks/frontend-service validate
+terraform -chdir=infra/terraform/stacks/frontend-service test
 ```
+
+Native Terraform tests are backend-free and use provider mocks plus
+remote-state overrides where needed. They check static configuration, variable
+validation, naming, digest constraints, private-network assumptions, and
+least-privilege boundaries without creating AWS resources. They are not
+application coverage inputs; SonarQube coverage applies only to backend and
+frontend application tests.
 
 For an authorised read-only review of the real state and AWS configuration, use
 the approved short-lived AWS profile and initialise the declared backend:

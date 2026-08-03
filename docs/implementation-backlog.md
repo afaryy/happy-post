@@ -44,7 +44,7 @@ The documentation baseline and application MVPs are complete. The remaining work
 
 ## P5 — CI/CD and operational validation
 
-- [x] Implement changed-root backend-free Terraform format/validate/TFLint on pull requests, plus workflow-dispatch-only plan/apply/destroy controls with a fixed canonical-root target allow-list.
+- [x] Implement changed-root backend-free Terraform format, validate, native test, and TFLint checks on pull requests, plus workflow-dispatch-only plan/apply/destroy controls with a fixed canonical-root target allow-list.
 - [x] Implement changed-component backend and frontend CI checks: locked dependencies, linting, unit tests, and frontend production build, without AWS credentials.
 - [x] Implement Trivy, Snyk, and SonarQube Cloud security scanning with explicit scanner gates and fork-safe secret boundaries.
 - [x] Remediate the Starlette HIGH findings and record the two approved, time-bound Trivy infrastructure exceptions for baseline sandbox trade-offs.
@@ -64,8 +64,8 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Update local Compose to run PostgreSQL and apply migrations before backend startup.
 - [x] Add frontend loading, validation, success, error, and simple monthly history states.
 - [x] Publish new immutable frontend and backend images from merged P6 `main`.
-- [ ] Merge the controlled database migration workflow, update the CloudFormation bootstrap stack, then run `alembic upgrade head` as a one-off private ECS task from the verified backend image digest.
-- [ ] Deploy the P6 backend, deploy the P6 frontend, then verify entry persistence through RDS.
+- [x] Merge the controlled database migration workflow, update the CloudFormation bootstrap stack, then run `alembic upgrade head` as a one-off private ECS task from the verified backend image digest.
+- [x] Deploy the P6 backend, deploy the P6 frontend, then verify entry persistence through RDS.
 - [ ] Re-run the restart persistence demo: create an entry, restart backend, and confirm the happy things remain.
 - [ ] For real users, replace MVP app-level auth with managed identity such as Amazon Cognito, Auth0, or Clerk.
 
