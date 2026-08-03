@@ -9,7 +9,7 @@ The MVP application source is present: a FastAPI daily-entry API and a warm Next
 - [Backend MVP](backend/README.md): email/password MVP auth, user-scoped daily-entry API, operational endpoints, PostgreSQL persistence, Alembic migration, tests, linting, and local configuration example.
 - [Frontend MVP](frontend/README.md): sign-in/sign-up UI, three-small-happy-things bedtime UI, private history calendar, backend API integration, operational endpoints, tests, linting, and local configuration example.
 - [Terraform foundation](infra/terraform/README.md): version constraints, remote state, and applied sandbox network, RDS data, ECR/ECS platform, edge, and service roots.
-- [Terraform workflow controls](.github/workflows/terraform-plan.yml): backend-free PR validation plus manual target-selected plan, apply, and destroy controls.
+- [Terraform workflow controls](.github/workflows/terraform-test.yml): backend-free PR format, validate, native test, and TFLint checks plus manual target-selected plan, apply, and destroy controls.
 - [Application CI](.github/workflows/application-ci.yml): changed-component backend and frontend linting, unit tests, and frontend build checks.
 - [Image publication](.github/workflows/image-publish.yml): changed-component `main` publication plus a main-only manual initial publication, Trivy gate, immutable ECR publication, and digest handoff artifact.
 - [Service bootstrap](.github/workflows/service-bootstrap.yml): manually creates one selected initial service only after repository-specific digest and immutable source-commit-tag verification.
