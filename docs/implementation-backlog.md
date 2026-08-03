@@ -63,8 +63,9 @@ The documentation baseline and application MVPs are complete. The remaining work
 - [x] Preserve append-only Alembic history by keeping `0001_create_posts` and adding `0002_create_users_daily_entries`, which replaces temporary posts with `users`, `user_sessions`, `daily_entries`, and `daily_entry_items`.
 - [x] Update local Compose to run PostgreSQL and apply migrations before backend startup.
 - [x] Add frontend loading, validation, success, error, and simple monthly history states.
-- [ ] Publish new immutable frontend and backend images after review and merge.
-- [ ] Run the database migration first, deploy the backend, deploy the frontend, then verify entry persistence through RDS.
+- [x] Publish new immutable frontend and backend images from merged P6 `main`.
+- [ ] Merge the controlled database migration workflow, update the CloudFormation bootstrap stack, then run `alembic upgrade head` as a one-off private ECS task from the verified backend image digest.
+- [ ] Deploy the P6 backend, deploy the P6 frontend, then verify entry persistence through RDS.
 - [ ] Re-run the restart persistence demo: create an entry, restart backend, and confirm the happy things remain.
 - [ ] For real users, replace MVP app-level auth with managed identity such as Amazon Cognito, Auth0, or Clerk.
 
