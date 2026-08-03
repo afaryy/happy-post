@@ -18,6 +18,10 @@ def database_url() -> str:
     return getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
 
 
+def escape_database_url_for_alembic(url: str) -> str:
+    return url.replace("%", "%%")
+
+
 def run_migrations_offline() -> None:
     context.configure(
         url=database_url(),
@@ -31,7 +35,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    config.set_main_option("sqlalchemy.url", database_url())
+    config.set_main_option("sqlalchemy.url", escape_database_url_for_alembic(database_url()))
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
