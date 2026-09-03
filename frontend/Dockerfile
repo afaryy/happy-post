@@ -1,4 +1,4 @@
-FROM cgr.dev/chainguard/node:latest-dev@sha256:d543de1e29036a65ab270e2069672aa29fae3999e089bc491a9f9094ad2d6ac2 AS dependencies
+FROM cgr.dev/chainguard/node:latest-dev@sha256:3d740b8a4a96b91e86ab9b3c145b1a9b3e032a9a01a1d84ea7695fc8ab51c7ca AS dependencies
 
 USER root
 
@@ -23,7 +23,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-FROM cgr.dev/chainguard/node:latest@sha256:7740ce8ef7cce4b0892e85813cbb39abe48c56bd48290cb18b9ea721480263f3 AS runtime
+FROM cgr.dev/chainguard/node:latest@sha256:105c8e7e503ea8f45553b9cc5aa0d24e80499bcc7c860dff54449e7c01d9be79 AS runtime
 
 WORKDIR /app
 
