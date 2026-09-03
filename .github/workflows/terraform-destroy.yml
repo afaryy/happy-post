@@ -89,6 +89,11 @@ jobs:
           role-to-assume: ${{ env.TERRAFORM_APPLY_ROLE_ARN }}
           role-session-name: happy-post-terraform-destroy-${{ github.run_id }}
 
+      - name: Supply required service inputs for destroy
+        env:
+          TERRAFORM_TARGET: ${{ inputs.target }}
+        run: bash .github/scripts/export-destroy-service-image-inputs.sh "$TERRAFORM_TARGET" >> "$GITHUB_ENV"
+
       - name: Initialise remote state
         run: terraform -chdir="${{ steps.target.outputs.working_directory }}" init -input=false
 

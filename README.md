@@ -37,6 +37,32 @@ The controlled ECS deployment workflow has successfully deployed both services. 
 
 Database-changing releases require one extra controlled step before the backend deployment. After publishing the backend image from `main`, run the manual database migration workflow with the same backend `image_digest` and `source_commit`, confirm `migrate-backend`, verify success, and only then run the backend ECS deployment workflow with that digest. The migration workflow and required bootstrap permissions are now in place; keep future database-changing releases on the same migration-before-backend-deploy sequence.
 
+## Temporarily destroy the AWS sandbox
+
+When the sandbox is not needed, use the manually dispatched `Terraform Destroy`
+GitHub Actions workflow to remove the Terraform-managed runtime resources and
+avoid ongoing AWS charges. Destroy one target at a time, in this order:
+
+1. `backend-service` — enter `destroy-backend-service`.
+2. `frontend-service` — enter `destroy-frontend-service`.
+3. `edge` — enter `destroy-edge`.
+4. `platform` — enter `destroy-platform`.
+5. `data` — enter `destroy-data`.
+6. `network` — enter `destroy-network`.
+7. `observability` — enter `destroy-observability`, if that stack was applied.
+
+The workflow creates and applies a fresh destroy plan for the selected target.
+Review the plan output before continuing to the next target. Destroying `data`
+creates an RDS final snapshot; delete that snapshot separately only when the
+database data is no longer required, because snapshots continue to incur storage
+charges.
+
+Do not delete the CloudFormation bootstrap stack during a temporary teardown.
+It owns the Terraform state S3 bucket, DynamoDB lock table, permissions boundary,
+and GitHub OIDC operational roles required to deploy the sandbox again. To restore
+the application later, run the Terraform apply workflow in dependency order and
+then use the image publication and ECS service bootstrap/deployment workflows.
+
 ## Run locally with containers
 
 Docker Compose defines `db`, `backend-migrate`, `backend`, and `frontend` for a
@@ -118,6 +144,7 @@ The maintainable logical source is [solution architecture](docs/diagrams/solutio
 - [Implementation backlog](docs/implementation-backlog.md)
 - [Security decisions](docs/security-decisions.md)
 - [Deployment and rollback](docs/deployment-and-rollback.md)
+- [Sandbox destroy runbook](docs/sandbox-destroy-runbook.md)
 - [Operations](docs/operations.md)
 - [Git and pull-request conventions](docs/git-and-pr-conventions.md)
 - [Diagram sources](docs/diagrams/)
