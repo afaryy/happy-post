@@ -5,6 +5,7 @@ on:
     paths:
       - "infra/terraform/**"
       - ".github/workflows/terraform-*.yml"
+      - ".github/scripts/**"
 
 permissions:
   contents: read
@@ -13,6 +14,18 @@ env:
   TF_IN_AUTOMATION: "true"
 
 jobs:
+  test-destroy-service-input-helper:
+    name: Test destroy service input helper
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Test destroy service input helper
+        run: bash .github/scripts/test-export-destroy-service-image-inputs.sh
+
   detect-roots:
     name: Detect affected Terraform roots
     runs-on: ubuntu-latest
